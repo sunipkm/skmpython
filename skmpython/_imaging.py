@@ -15,7 +15,7 @@ class TransformImage:
         self._dtype = dtype
         if os.path.exists(fname) and not os.path.isdir(fname):
             ext = fname.rsplit('.', 1)[-1]
-            if ext.lower() not in TransformImage.__exts or 'fit' not in ext.lower():
+            if not (ext.lower() in TransformImage.__exts or 'fit' in ext.lower()):
                 raise TypeError(
                     'Extension %s is not valid for file %s.' % (ext, fname))
 
@@ -44,15 +44,15 @@ class TransformImage:
                 for col in range(inshape[1]):
                     val = self._orig[row, col]
                     val /= self._supersample
-                    out[row*res:(row+1)*res][col*res:(col+1) *
-                                             res] = np.repeat(val, res * res).reshape((res, res))
+                    vout = np.repeat(val, res * res).reshape((res, res))
+                    out[row*res:(row+1)*res, col*res:(col+1)*res] = vout
         elif len(inshape) == 3:
             for row in range(inshape[0]):
                 for col in range(inshape[1]):
                     for cl in range(inshape[2]):
                         val = self._orig[row, col, cl]
                         val /= self._supersample
-                        out[row*res:(row+1)*res][col*res:(col+1) *
+                        out[row*res:(row+1)*res, col*res:(col+1) *
                                                  res:cl] = np.repeat(val, res * res).reshape((res, res))
         self._data = out
 
@@ -65,14 +65,14 @@ class TransformImage:
         if len(inshape) == 2:
             for row in range(inshape[0]):
                 for col in range(inshape[1]):
-                    out[row:row+1][col:col+1] = np.sum(
-                        self._data[row*res:(row+1)*res][col*res:(col+1)*res], dtype=float)/res
+                    out[row:row+1, col:col+1] = np.sum(
+                        self._data[row*res:(row+1)*res, col*res:(col+1)*res], dtype=float)/res
         elif len(inshape) == 3:
             for row in range(inshape[0]):
                 for col in range(inshape[1]):
                     for cl in range(inshape[2]):
-                        out[row:row+1][col:col+1][cl] = np.sum(
-                            self._data[row*res:(row+1)*res][col*res:(col+1)*res][cl], dtype=float)/res
+                        out[row:row+1, col:col+1][cl] = np.sum(
+                            self._data[row*res:(row+1)*res, col*res:(col+1)*res][cl], dtype=float)/res
         self._data = out
 
     def reset(self):
@@ -107,7 +107,8 @@ class TransformImage:
         _tx = round(_tx)
         _ty = round(_ty)
         out = Image.fromarray(self._data)
-        out = out.transform(out.size, Image.AFFINE, (1, 0, _tx, 1, 0, _ty))
+        out = out.transform(out.size, Image.AFFINE, (1, 0, _tx, 0, 1, _ty))
+        self._data = np.asarray(out, dtype=self._dtype)
         xform = ('xy', tx, ty)
         self._transforms.append(xform)
 
@@ -133,7 +134,7 @@ class TransformImage:
             rr = rl + oldshape[0]
             cl = (newshape[1] - oldshape[1]) // 2
             cr = cl + oldshape[1]
-            out = oval[rl:rr][cl:cr]
+            out = oval[rl:rr, cl:cr]
         elif sq_factor < 1:  # center
             oldshape = out.shape
             newshape = oval.shape
@@ -141,7 +142,7 @@ class TransformImage:
             rr = rl + newshape[0]
             cl = (oldshape[1] - newshape[1]) // 2
             cr = cl + newshape[1]
-            out[rl:rr][cl:cr] = oval
+            out[rl:rr, cl:cr] = oval
         self._data = out
 
     def transform(self, code: str, *kwargs):
