@@ -4,7 +4,6 @@ from PIL import Image
 from astropy.io import fits as pf
 import os
 
-
 class TransformImage:
     __exts = ['png', 'jpg', 'jpeg', 'bmp']
     __transforms = ['ss', 'xy', 'cc', 'sq']
@@ -34,45 +33,20 @@ class TransformImage:
         if res == 1:
             return
         self._supersample = res
-        inshape = self._orig.shape
-        outshape = np.asarray(self._orig.shape, dtype=int)
+        inval = Image.fromarray(self._orig)
+        inshape = inval.size
+        outshape = np.asarray(inshape, dtype=int)
         outshape[0:2] = outshape[0:2] * res
         outshape = tuple(outshape)
-        out = np.zeros(outshape, dtype=self._dtype)
-        if len(inshape) == 2:
-            for row in range(inshape[0]):
-                for col in range(inshape[1]):
-                    val = self._orig[row, col]
-                    val /= self._supersample
-                    vout = np.repeat(val, res * res).reshape((res, res))
-                    out[row*res:(row+1)*res, col*res:(col+1)*res] = vout
-        elif len(inshape) == 3:
-            for row in range(inshape[0]):
-                for col in range(inshape[1]):
-                    for cl in range(inshape[2]):
-                        val = self._orig[row, col, cl]
-                        val /= self._supersample
-                        out[row*res:(row+1)*res, col*res:(col+1) *
-                                                 res:cl] = np.repeat(val, res * res).reshape((res, res))
+        out = inval.resize(outshape, resample=Image.BOX)
+        out = np.asarray(out, dtype=self._dtype)
         self._data = out
 
     def downsample(self):  # downsample image
-        outshape = self._orig.shape
-        inshape = self._data.shape
-        out = np.zeros(outshape, dtype=self._dtype)
-        res = self._supersample
+        outshape = Image.fromarray(self._orig).size
+        out = Image.fromarray(self._data).resize(outshape, resample=Image.BOX)
+        out = np.asarray(out, dtype=self._dtype)
         self._supersample = 1
-        if len(inshape) == 2:
-            for row in range(inshape[0]):
-                for col in range(inshape[1]):
-                    out[row:row+1, col:col+1] = np.sum(
-                        self._data[row*res:(row+1)*res, col*res:(col+1)*res], dtype=float)/res
-        elif len(inshape) == 3:
-            for row in range(inshape[0]):
-                for col in range(inshape[1]):
-                    for cl in range(inshape[2]):
-                        out[row:row+1, col:col+1][cl] = np.sum(
-                            self._data[row*res:(row+1)*res, col*res:(col+1)*res][cl], dtype=float)/res
         self._data = out
 
     def reset(self):
