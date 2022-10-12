@@ -5,10 +5,23 @@ from astropy.io import fits as pf
 import os
 
 class TransformImage:
+    """Image manipulation class.
+    """
     __exts = ['png', 'jpg', 'jpeg', 'bmp']
     __transforms = ['ss', 'xy', 'cc', 'cx', 'sq']
-
     def __init__(self, fname: str, unit: int = 0, dtype: np.dtype = float):
+        """Load an image from png, jpg, bmp or fits file and create a new
+        instance of TransformImage class.
+
+        Args:
+            fname (str): File name to load image from.
+            unit (int, optional): FITS unit number. Defaults to 0.
+            dtype (np.dtype, optional): Load image as data type. Defaults to float.
+
+        Raises:
+            TypeError: Invalid file type.
+            RuntimeError: Source does not exist/is a directory.
+        """
         self._supersample = 1  # not supersampled
         self._transforms = []  # empty list of transforms
         self._dtype = dtype
@@ -28,6 +41,14 @@ class TransformImage:
             raise RuntimeError('%s does not exist/is a directory.' % (fname))
 
     def supersample(self, res: int = 16) -> None:  # supersample image
+        """Supersample the image.
+
+        Args:
+            res (int, optional): Supersampling ratio [2, 32]. Defaults to 16.
+
+        Raises:
+            RuntimeError: Invalid subsampling request.
+        """
         if res < 1 or res > 32:
             raise RuntimeError('Supersample request %d invalid.' % (res))
         if res == 1:
@@ -43,6 +64,8 @@ class TransformImage:
         self._data = out
 
     def downsample(self):  # downsample image
+        """Downsample the image to source sampling.
+        """
         outshape = Image.fromarray(self._orig).size
         out = Image.fromarray(self._data).resize(outshape, resample=Image.BOX)
         out = np.asarray(out, dtype=self._dtype)
@@ -50,19 +73,39 @@ class TransformImage:
         self._data = out
 
     def reset(self):
+        """Revert all manipulations.
+        """
         self._supersample = 1
         self._transforms = []
         self._data = np.copy(self._orig)
 
     @property
-    def data(self):
+    def data(self) -> np.ndarray:
+        """Get the image data.
+
+        Returns:
+            numpy.ndarray: Image data array.
+        """
         return np.asarray(self._data)
 
     @property
-    def samplerate(self):
+    def samplerate(self) -> int:
+        """Current sample rate of the image.
+
+        Returns:
+            int: Sample rate.
+        """
         return self._supersample
 
     def rotate(self, ang: float, center: tuple | None = None) -> None:
+        """Rotate image.
+
+        Args:
+            ang (float): Rotation angle in degrees.
+            center (tuple | None, optional): Rotation center, set to None to 
+            rotate about the center of the image. Image origin is at top left. 
+            Refer to Pillow documentation for more info.. Defaults to None.
+        """
         out = Image.fromarray(self._data)
         out = out.rotate(ang, center=center)
         self._data = np.asarray(out, dtype=self._dtype)
@@ -73,14 +116,24 @@ class TransformImage:
         self._transforms.append(xform)
 
     def undo(self):
+        """Undo the last transformation.
+        """
         # 1. supersample image again
         # this resets to original supersample
         self.supersample(self._supersample)
-        if len(self.__transforms) > 0:
-            for xform in self._transforms[:-1]:
+        xforms = self._transforms
+        self._transforms = []
+        if len(xforms) > 0:
+            for xform in xforms[:-1]:
                 self.transform(xform[0], xform[1:])
 
     def translate(self, tx: float = 0, ty: float = 0) -> None:
+        """Translate the image.
+
+        Args:
+            tx (float, optional): Translate in the X axis. Defaults to 0.
+            ty (float, optional): Translate in the Y axis. Defaults to 0.
+        """
         _tx = tx
         _ty = ty
         _tx *= self._supersample
@@ -94,6 +147,14 @@ class TransformImage:
         self._transforms.append(xform)
 
     def squeeze(self, sq_factor: float):
+        """Squeeze/zoom the image.
+
+        Args:
+            sq_factor (float): Squeeze/zoom factor in fraction. < 1 to make the image smaller, > 1 to make the image larger.
+
+        Raises:
+            ValueError: Squeeze factor <= 0 not allowed.
+        """
         if sq_factor <= 0:
             raise ValueError('Squeeze factor can not be 0 or negative')
         if sq_factor == 1:
@@ -129,6 +190,15 @@ class TransformImage:
         self._transforms.append(xform)
 
     def transform(self, code: str, *kwargs):
+        """General transformation function.
+
+        Args:
+            code (str): Transformation command code (ss: Supersample, xy: Translation, cc: Rotation about center of image, cx: Rotation about given center, sq: Squeeze/zoom.)
+            Additional arguments must be supplied to go with the command.
+
+        Raises:
+            TypeError: Invalid transformation command.
+        """
         if code not in TransformImage.__transforms:
             raise TypeError('%s is not a valid transformation.' % (code))
         if code == 'xy':
@@ -141,10 +211,17 @@ class TransformImage:
             self.squeeze(*kwargs)
 
     def reapply_transforms(self):
+        """Reapply all transforms after reset.
+        """
         for xform in self.__transforms:
             self.transform(xform[0], xform[1:])
 
-    def simplify_transforms(self):
+    def simplify_transforms(self)->list:
+        """Simplify transformation by coalescing consecutive commands.
+
+        Returns:
+            list: List of simplified transformation commands.
+        """
         if len(self._transforms) <= 1:
             return self._transforms.copy()
         cmd = ''
@@ -175,12 +252,28 @@ class TransformImage:
         return out
                 
     def save_image(self, fname: str):
+        """Save image with all transformations.
+
+        Args:
+            fname (str): Path to file.
+
+        Raises:
+            RuntimeError: Path is a directory.
+        """
         if os.path.exists(fname) and os.path.isdir(fname):
             raise RuntimeError('%s is a directory'%(fname))
         img = Image.fromarray(self._data)
         img.save(fname)
 
     def save_transforms(self, fname: str):
+        """Save transformations.
+
+        Args:
+            fname (str): File name.
+
+        Raises:
+            RuntimeError: File name is a directory.
+        """
         if len(self._transforms) == 0:
             return
         if os.path.exists(fname) and os.path.isdir(fname):
@@ -210,6 +303,14 @@ class TransformImage:
             ofile.close()
 
     def load_transforms(self, fname: str):
+        """Load transformations.
+
+        Args:
+            fname (str): File name.
+
+        Raises:
+            RuntimeError: File does not exist or is a directory.
+        """
         if not os.path.exists(fname) or os.path.isdir(fname):
             raise RuntimeError('%s does not exits/is directory')
 
