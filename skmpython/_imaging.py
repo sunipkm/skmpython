@@ -264,6 +264,16 @@ class TransformImage:
             raise RuntimeError('%s is a directory'%(fname))
         outshape = Image.fromarray(self._orig).size
         img = Image.fromarray(self._data).resize(outshape, resample=Image.BOX)
+        data = np.asarray(img, dtype=float)
+        if len(data.shape) == 2:
+            data -= data.min()
+            data /= data.max()
+            data *= 65535
+            data = np.asarray(data, dtype=np.uint16)
+            img = Image.fromarray(data)
+        else:
+            data = np.asarray(data, dtype=np.uint8)
+            img = Image.fromarray(data)
         img.save(fname)
 
     def save_transforms(self, fname: str):
