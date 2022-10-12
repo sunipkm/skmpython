@@ -262,7 +262,8 @@ class TransformImage:
         """
         if os.path.exists(fname) and os.path.isdir(fname):
             raise RuntimeError('%s is a directory'%(fname))
-        img = Image.fromarray(self._data)
+        outshape = Image.fromarray(self._orig).size
+        img = Image.fromarray(self._data).resize(outshape, resample=Image.BOX)
         img.save(fname)
 
     def save_transforms(self, fname: str):
