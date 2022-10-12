@@ -174,7 +174,11 @@ class TransformImage:
             out.append([cmd] + args)
         return out
                 
-
+    def save_image(self, fname: str):
+        if os.path.exists(fname) and os.path.isdir(fname):
+            raise RuntimeError('%s is a directory'%(fname))
+        img = Image.fromarray(self._data)
+        img.save(fname)
 
     def save_transforms(self, fname: str):
         if len(self._transforms) == 0:
