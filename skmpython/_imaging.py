@@ -6,7 +6,7 @@ import os
 
 class TransformImage:
     __exts = ['png', 'jpg', 'jpeg', 'bmp']
-    __transforms = ['ss', 'xy', 'cc', 'sq']
+    __transforms = ['ss', 'xy', 'cc', 'cx', 'sq']
 
     def __init__(self, fname: str, unit: int = 0, dtype: np.dtype = float):
         self._supersample = 1  # not supersampled
@@ -58,11 +58,18 @@ class TransformImage:
     def data(self):
         return np.asarray(self._data)
 
+    @property
+    def samplerate(self):
+        return self._supersample
+
     def rotate(self, ang: float, center: tuple | None = None) -> None:
         out = Image.fromarray(self._data)
         out = out.rotate(ang, center=center)
         self._data = np.asarray(out, dtype=self._dtype)
-        xform = ('cc', ang, center)
+        if center is None:
+            xform = ('cc', ang, center)
+        else:
+            xform = ('cx', ang, center)
         self._transforms.append(xform)
 
     def undo(self):
@@ -118,29 +125,77 @@ class TransformImage:
             cr = cl + newshape[1]
             out[rl:rr, cl:cr] = oval
         self._data = out
+        xform = ('sq', sq_factor)
+        self._transforms.append(xform)
 
     def transform(self, code: str, *kwargs):
         if code not in TransformImage.__transforms:
             raise TypeError('%s is not a valid transformation.' % (code))
         if code == 'xy':
             self.translate(*kwargs)
-        elif code == 'cc':
+        elif code == 'cc' or code == 'cx':
             self.rotate(*kwargs)
         elif code == 'ss':
             self.supersample(*kwargs)
+        elif code == 'sq':
+            self.squeeze(*kwargs)
 
     def reapply_transforms(self):
         for xform in self.__transforms:
             self.transform(xform[0], xform[1:])
+
+    def simplify_transforms(self):
+        if len(self._transforms) <= 1:
+            return self._transforms.copy()
+        cmd = ''
+        args = []
+        out = []
+        for idx, xform in enumerate(self._transforms):
+            if cmd != xform[0] and cmd == '':
+                cmd = xform[0]
+                args = list(xform[1:])
+            elif cmd == xform[0]: # same command, again -> could aggregate
+                if cmd == 'ss':
+                    args[0] = xform[1] # just update args if multiple supersample commands one after another, only the last one stays
+                elif cmd == 'xy':
+                    args[0] += xform[1] # add X-Y translations together
+                    args[1] += xform[2]
+                elif cmd == 'cc': # about 0
+                    args[0] += xform[1]
+                elif cmd == 'cx': # about different centers
+                    out.append([cmd] + args)
+                elif cmd == 'sq':
+                    args[0] *= xform[1] # percentage product
+            else: # unequal, push to out, update new
+                out.append([cmd] + args)
+                cmd = xform[0]
+                args = list(xform[1:])
+        if cmd != '':
+            out.append([cmd] + args)
+        return out
+                
+
 
     def save_transforms(self, fname: str):
         if len(self._transforms) == 0:
             return
         if os.path.exists(fname) and os.path.isdir(fname):
             raise RuntimeError('Path exists and is a directory.')
-        with open(fname, 'w') as ofile:
-            ofile.write('ss, %d\n' % (self._supersample))
+        with open(fname + '.raw', 'w') as ofile:
+            ofile.write('ss,%d\n' % (self._supersample))
             for xform in self._transforms:
+                outf = ''
+                for xf in xform:
+                    outf += str(xf) + ','
+                outf = outf.rstrip()
+                outf = outf.rstrip(',')
+                outf += '\n'
+                ofile.write(outf)
+            ofile.close()
+        out = self.simplify_transforms()
+        with open(fname, 'w') as ofile:
+            ofile.write('ss,%d\n' % (self._supersample))
+            for xform in out:
                 outf = ''
                 for xf in xform:
                     outf += str(xf) + ','
@@ -161,5 +216,20 @@ class TransformImage:
                 for idx, _ in enumerate(words):
                     words[idx] = words[idx].strip()
                 cmd = words[0]
-                args = (eval(w) for w in words[1:])
-                self.transform(cmd, args)
+                if cmd == 'ss':
+                    arg = int(words[1])
+                    self.transform(cmd, arg)
+                elif cmd == 'cc':
+                    ang = float(words[1])
+                    self.transform(cmd, ang)
+                elif cmd == 'cx':
+                    c0 = int(words[2][1:]) # (...
+                    c1 = int(words[3][:1]) # ...)
+                    self.transform(cmd, ang, (c0, c1))
+                elif cmd == 'xy':
+                    x = float(words[1])
+                    y = float(words[2])
+                    self.transform(cmd, x, y)
+                elif cmd == 'sq':
+                    zoom = float(words[1])
+                    self.transform(cmd, zoom)
