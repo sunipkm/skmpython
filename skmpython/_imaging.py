@@ -9,7 +9,20 @@ class TransformImage:
     """
     __exts = ['png', 'jpg', 'jpeg', 'bmp']
     __transforms = ['ss', 'xy', 'cc', 'cx', 'sq']
-    def __init__(self, fname: str, unit: int = 0, dtype: np.dtype = float):
+    def __init__(self, data: np.ndarray):
+        """Generate a new instance of TransformImage class from data array.
+
+        Args:
+            data (np.ndarray): Image data array.
+        """
+        self._supersample = 1  # not supersampled
+        self._transforms = []  # empty list of transforms
+        self._dtype = data.dtype
+        self._orig = np.copy(data)
+        self._data = np.copy(self._orig)
+
+    @classmethod
+    def fromfile(cls, fname: str, unit: int = 0, dtype: np.dtype = float)->TransformImage:
         """Load an image from png, jpg, bmp or fits file and create a new
         instance of TransformImage class.
 
@@ -21,10 +34,10 @@ class TransformImage:
         Raises:
             TypeError: Invalid file type.
             RuntimeError: Source does not exist/is a directory.
+
+        Returns:
+            TransformImage: Instance of TransformImage class.
         """
-        self._supersample = 1  # not supersampled
-        self._transforms = []  # empty list of transforms
-        self._dtype = dtype
         if os.path.exists(fname) and not os.path.isdir(fname):
             ext = fname.rsplit('.', 1)[-1]
             if not (ext.lower() in TransformImage.__exts or 'fit' in ext.lower()):
@@ -32,13 +45,13 @@ class TransformImage:
                     'Extension %s is not valid for file %s.' % (ext, fname))
 
             if ext.lower() in TransformImage.__exts:
-                self._orig = np.asarray(Image.open(fname), dtype=dtype)
+                data = np.asarray(Image.open(fname), dtype=dtype)
             elif 'fit' in ext.lower():
                 with pf.open(fname) as f:
-                    self._orig = np.asarray(f[unit].data, dtype=dtype)
-            self._data = np.copy(self._orig)
+                    data = np.asarray(f[unit].data, dtype=dtype)
         else:
             raise RuntimeError('%s does not exist/is a directory.' % (fname))
+        return cls(data)
 
     def supersample(self, res: int = 16) -> None:  # supersample image
         """Supersample the image.
