@@ -101,13 +101,17 @@ class BaseGaussFuncs:
         """
         pass
 
-class GaussFuncs(BaseGaussFuncs):
+class GaussFuncsBasic(BaseGaussFuncs):
     """This class accepts parameters of length 5 + 3 * N, where
     N is the number of Gaussians to be fit. first 5 parameters are 
     a0 to a4. The background is evaluated as: 
     background = a0 + a1*x + a2*x^2 + a3*x^3 + a4*x^4.
     For each Gaussian, the parameters to be supplied are [C, A, W]. 
     The Gaussians are evaluated as A*exp(-((x-C)/W)^2).
+    
+    WARNING: Very basic fit function. With large (or small) values of x,
+    the polynomial evaluated can be very large. Use if x is around 0.
+    GaussFuncs is the preferred class.
     """
     def __init__(self):
         pass
@@ -124,7 +128,7 @@ class GaussFuncs(BaseGaussFuncs):
         """
         if len(params) == 1:
             params = params[0]
-        y = GaussFuncs.background(x, params)
+        y = GaussFuncsBasic.background(x, params)
         for i in range(5, len(params), 3):
             ctr = params[i]
             amp = params[i + 1]
@@ -165,7 +169,7 @@ class GaussFuncs(BaseGaussFuncs):
         """
         if len(params) == 1:
             params = params[0]
-        y = GaussFuncs.background(x, params)
+        y = GaussFuncsBasic.background(x, params)
         base = 5 + (3 * id)
         ctr = params[base]
         amp = params[base + 1]
@@ -186,6 +190,8 @@ class GaussFuncs(BaseGaussFuncs):
             np.ndarray: Y data.
         """
         y = np.zeros_like(x)
+        if len(params) == 1:
+            params = params[0]
         base = 5 + (3 * id)
         ctr = params[base]
         amp = params[base + 1]
@@ -213,7 +219,7 @@ class GaussFuncs(BaseGaussFuncs):
         """
         return 5
 
-class GaussFuncsExt(BaseGaussFuncs):
+class GaussFuncs(BaseGaussFuncs):
     """This class accepts parameters of length 6 + 3 * N, where
     N is the number of Gaussians to be fit. The first parameter
     is x0, and the next 5 parameters are a0 to a4.
@@ -221,6 +227,8 @@ class GaussFuncsExt(BaseGaussFuncs):
     background = a0 + a1(x-x0) + a2(x-x0)^2 + a3(x-x0)^3 + a4(x-x0)^4.
     For each Gaussian, the parameters to be supplied are [C, A, W]. 
     The Gaussians are evaluated as A*exp(-((x-C)/W)^2).
+
+    This is the preferred function suite used to fit Gaussians.
     """
     @staticmethod
     def full_field(x: np.ndarray, *params)->np.ndarray:
@@ -235,7 +243,7 @@ class GaussFuncsExt(BaseGaussFuncs):
         """
         if len(params) == 1:
             params = params[0]
-        y = GaussFuncsExt.background(x, params)
+        y = GaussFuncs.background(x, params)
         for i in range(6, len(params), 3):
             ctr = params[i]
             amp = params[i + 1]
@@ -277,7 +285,7 @@ class GaussFuncsExt(BaseGaussFuncs):
         """
         if len(params) == 1:
             params = params[0]
-        y = GaussFuncsExt.background(x, params)
+        y = GaussFuncs.background(x, params)
         base = 6 + (3 * id)
         ctr = params[base]
         amp = params[base + 1]
@@ -335,6 +343,8 @@ class GaussFuncsExtS(BaseGaussFuncs):
     background = a0 + a1(x-x1) + a2(x-x2)^2 + a3(x-x3)^3 + a4(x-x4)^4.
     For each Gaussian, the parameters to be supplied are [C, A, W]. 
     The Gaussians are evaluated as A*exp(-((x-C)/W)^2).
+
+    WARNING: Use this class only in case of very stubborn fits.
     """
     @staticmethod
     def full_field(x: np.ndarray, *params)->np.ndarray:
@@ -450,7 +460,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
 class GaussFit:
     """Fit N Gaussians with a 5 degree polynomial background.
     """
-    def __init__(self, x: np.ndarray, y: np.ndarray, *p0, baseclass: BaseGaussFuncs = GaussFuncs(), plot: bool = True, **kwargs):
+    def __init__(self, x: np.ndarray, y: np.ndarray, *p0, baseclass: BaseGaussFuncs = GaussFuncsBasic(), plot: bool = True, **kwargs):
         """Initialize a Gauss fit object.
 
         Args:
@@ -503,9 +513,12 @@ class GaussFit:
             if self._plot_every > 0 and (self._iteration % self._plot_every):
                 pass
             else:
-                self._bck.set_ydata(self._baseclass.background(x, params))
+                bck = self._baseclass.background(x, params)
+                self._bck.set_ydata(bck)
                 for idx, sig in enumerate(self._sig):
-                    sig.set_ydata(self._baseclass.gaussian_w_bg(x, idx, params))
+                    gaus = self._baseclass.gaussian_wo_bg(x, idx, params)
+                    gaus += bck
+                    sig.set_ydata(gaus)
                 data = self._baseclass.full_field(x, params)
                 self._ax.set_ylim(np.min([data.min(), self._y.min()]), np.max([data.max(), self._y.max()]))    
                 res = np.sqrt(np.sum((self._y - data)**2))
@@ -521,19 +534,26 @@ class GaussFit:
         if self._interval > 0 and self._plot:
             plt.pause(self._interval)
 
-    def run(self, interval: float=1/24, plot_every: int = 0, **kwargs)->tuple:
+    def run(self, plot_every: int = 0, interval: float=1/24, **kwargs)->tuple:
         """Run the fit routine. Read documentation for scipy.optimize.curve_fit to see what additional named parameters can be passed through kwargs (x, y, p0 are internally passed).
 
         Args:
+            plot_every (int, optional): Plot every Nth frame (0 to plot every frame, default.) Setting this
+            to a positive value causes run() to ignore the value of interval.
             interval (float, optional): Interval between plot frame updates in seconds. Defaults to 1/24.
-            plot_every (int, optional): Plot every Nth frame (0 to plot every frame, default.)
+            Interval is used only when plot_every is non-positive.
             kwargs: Named arguments passed to scipy.optimize.curve_fit. DO NOT pass f, xdata, ydata, p0.
 
         Returns:
             tuple: popt, pcov (and infodict, mesg, ier if full_output=True) from scipy.optimize.curve_fit.
         """
-        self._interval = interval
+        if plot_every < 0:
+            plot_every = 0
         self._plot_every = plot_every
+        if plot_every > 0:
+            self._interval = 0
+        else:
+            self._interval = interval
         output = curve_fit(self._fit_func, self._x, self._y, p0=self._param, **kwargs)
         if self._plot:
             data = self._baseclass.full_field(self._x, output[0])
