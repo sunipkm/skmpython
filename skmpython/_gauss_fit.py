@@ -73,7 +73,7 @@ class GaussFit:
         if self._interval > 0 and self._plot:
             plt.pause(self._interval)
 
-    def run(self, interval: float=1/24, plot_every: int = 0, **kwargs)->tuple(np.ndarray, np.ndarray):
+    def run(self, interval: float=1/24, plot_every: int = 0, **kwargs)->tuple:
         """Run the fit routine. Read documentation for scipy.optimize.curve_fit to see what additional named parameters can be passed through kwargs (x, y, p0 are internally passed).
 
         Args:
@@ -82,19 +82,19 @@ class GaussFit:
             kwargs: Named arguments passed to scipy.optimize.curve_fit. DO NOT pass f, xdata, ydata, p0.
 
         Returns:
-            tuple(np.ndarray, np.ndarray): popt, pcov from scipy.optimize.curve_fit.
+            tuple: popt, pcov (and infodict, mesg, ier if full_output=True) from scipy.optimize.curve_fit.
         """
         self._interval = interval
         self._plot_every = plot_every
-        popt, pcov = curve_fit(self._fit_func, self._x, self._y, p0=self._param, **kwargs)
+        output = curve_fit(self._fit_func, self._x, self._y, p0=self._param, **kwargs)
         if self._plot:
-            data = GaussFit.full_field(self._x, popt)
+            data = GaussFit.full_field(self._x, output[0])
             res = np.sqrt(np.sum((self._y - data)**2))
             self._fig.suptitle('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.'%(self._n_gaussians, self._iteration, res))
             self._fig.canvas.draw()
             self._fig.canvas.flush_events()
             plt.ioff()
-        return popt, pcov
+        return output
 
     @staticmethod
     def full_field(x: np.ndarray, *params)->np.ndarray:
