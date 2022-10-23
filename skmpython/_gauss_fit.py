@@ -32,12 +32,15 @@ class GaussFit:
             for i in range((len(p0) - 5) // 3):
                 sig, = self._ax.plot(x, GaussFit.gaussian_w_bg(x, i, p0))
                 self._sig.append(sig)
+            self._ax.set_xlim(x.min(), x.max())
         self._plot = plot
         self._iteration = 0
         self._param = p0
         self._x = x
         self._y = y
+        self._last_res = None
         self._n_gaussians = (len(p0) - 5) // 3
+        self._plot_every = 0
         if plot:
             plt.ion()
             plt.show()
@@ -49,32 +52,47 @@ class GaussFit:
     
     def _update(self, x, *params):
         if self._plot:
-            self._bck.set_ydata(GaussFit.background(x, params))
-            for idx, sig in enumerate(self._sig):
-                sig.set_ydata(GaussFit.gaussian_w_bg(x, idx, params))
-            data = GaussFit.full_field(x, params)
-            self._ax.set_ylim(np.min([data.min(), self._y.min()]), np.max([data.max(), self._y.max()]))
-            self._fig.suptitle('Gaussians: %d, Iteration: %d'%(self._n_gaussians, self._iteration))
-            self._fig.canvas.draw()
-            self._fig.canvas.flush_events()
+            if self._plot_every > 0 and (self._iteration % self._plot_every):
+                pass
+            else:
+                self._bck.set_ydata(GaussFit.background(x, params))
+                for idx, sig in enumerate(self._sig):
+                    sig.set_ydata(GaussFit.gaussian_w_bg(x, idx, params))
+                data = GaussFit.full_field(x, params)
+                self._ax.set_ylim(np.min([data.min(), self._y.min()]), np.max([data.max(), self._y.max()]))    
+                res = np.sqrt(np.sum((self._y - data)**2))
+                if self._last_res is None:
+                    self._last_res = res
+                dres = res - self._last_res
+                self._last_res = res
+                self._fig.suptitle('Gaussians: %d, Iteration: %d, Residual: %.3e, Improvement: %.3e'%(self._n_gaussians, self._iteration, res, dres))
+                self._fig.canvas.draw()
+                self._fig.canvas.flush_events()
         self._iteration += 1
 
         if self._interval > 0 and self._plot:
             plt.pause(self._interval)
 
-    def run(self, interval: float=1/24, **kwargs)->tuple(np.ndarray, np.ndarray):
+    def run(self, interval: float=1/24, plot_every: int = 0, **kwargs)->tuple(np.ndarray, np.ndarray):
         """Run the fit routine. Read documentation for scipy.optimize.curve_fit to see what additional named parameters can be passed through kwargs (x, y, p0 are internally passed).
 
         Args:
             interval (float, optional): Interval between plot frame updates in seconds. Defaults to 1/24.
+            plot_every (int, optional): Plot every Nth frame (0 to plot every frame, default.)
             kwargs: Named arguments passed to scipy.optimize.curve_fit. DO NOT pass f, xdata, ydata, p0.
 
         Returns:
             tuple(np.ndarray, np.ndarray): popt, pcov from scipy.optimize.curve_fit.
         """
         self._interval = interval
+        self._plot_every = plot_every
         popt, pcov = curve_fit(self._fit_func, self._x, self._y, p0=self._param, **kwargs)
         if self._plot:
+            data = GaussFit.full_field(self._x, popt)
+            res = np.sqrt(np.sum((self._y - data)**2))
+            self._fig.suptitle('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.'%(self._n_gaussians, self._iteration, res))
+            self._fig.canvas.draw()
+            self._fig.canvas.flush_events()
             plt.ioff()
         return popt, pcov
 
