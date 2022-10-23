@@ -1,4 +1,9 @@
 # Library of functions and classes often used
+## Installation
+Using `pip`:
+```sh
+    $ pip install skmpython@"git+https://github.com/sunipkm/skmpython"
+```
 ## Functions
 1. `datetime_in_timezone`: Instantiate `datetime.datetime` object using a similar constructor where the first input is `pytz.timezone()` instance, followed by `year`, `month`, `day`, `hour`, etc. Will have issues when daylight saving is set/reset.
 1. `format_tdiff`: DEPRECATED. Format time difference (in seconds) using a format similar to that used by `datetime.datetime.strftime()`. Use `PerfTimer.format_tdiff()` instead.
