@@ -3,64 +3,6 @@ import datetime as dt
 from math import inf
 import re
 
-
-def format_tdiff(tdiff: float | dt.timedelta, fmt: str) -> str:
-    """Format time difference to string.
-
-    Args:
-        tdiff (float | dt.timedelta): Time difference.
-        fmt (str): Format string. Use %p to get the sign, %d to get the number of days, %H to get hours, %M to get minutes, %S to get seconds, %f to get milliseconds.
-
-    Raises:
-        TypeError: tdiff is not of valid type.
-
-    Returns:
-        str: Formatted string.
-    """
-    if isinstance(tdiff, dt.timedelta):
-        tdiff = tdiff.total_seconds()
-    elif isinstance(tdiff, float):
-        pass
-    else:
-        raise TypeError('%s is not a valid type for tdiff.' % (type(tdiff)))
-    sgn = False
-    if tdiff < 0:
-        sgn = True
-        tdiff = -tdiff
-    rem = tdiff * 1000
-    out = fmt
-    prefix = '+'
-    if tdiff == 0:
-        prefix = ' '
-    elif sgn:
-        prefix = '-'
-    prefix_prompts = re.findall('%p', fmt)
-    if len(prefix_prompts):
-        out = out.replace('%p', prefix)
-    day_prompts = re.findall('%[0-9]*d', fmt)
-    if len(day_prompts):
-        days, rem = divmod(rem, 86400000)
-        for dp in day_prompts:
-            out = out.replace(dp, dp % (days))
-    hour_prompts = re.findall('%H', fmt)
-    if len(hour_prompts):
-        hours, rem = divmod(rem, 3600000)
-        out = out.replace('%H', '%02.0f' % (hours))
-    minute_prompts = re.findall('%M', fmt)
-    if len(minute_prompts):
-        minutes, rem = divmod(rem, 60000)
-        out = out.replace('%M', '%02.0f' % (minutes))
-    second_prompts = re.findall('%S', fmt)
-    if len(second_prompts):
-        seconds, rem = divmod(rem, 1000)
-        out = out.replace('%S', '%02.0f' % (seconds))
-    msec_prompts = re.findall('%f', fmt)
-    if len(msec_prompts):
-        seconds, msec = divmod(rem, 1000)
-        out = out.replace('%f', '%03.0f' % (msec))
-    return out
-
-
 class PerfTimer:
     """Performance Timer class.
     """
@@ -160,3 +102,62 @@ class PerfTimer:
             k0 = list(self._last_iter.keys())[-1]
             k1 = list(self._last_iter.keys())[-2]
             return (k0 - k1, self._last_iter[k0])
+
+    @staticmethod
+    def format_tdiff(tdiff: float | dt.timedelta, fmt: str) -> str:
+        """Format time difference to string.
+
+        Args:
+            tdiff (float | dt.timedelta): Time difference.
+            fmt (str): Format string. Use %p to get the sign, %d to get the number of days, %H to get hours, %M to get minutes, %S to get seconds, %f to get milliseconds.
+
+        Raises:
+            TypeError: tdiff is not of valid type.
+
+        Returns:
+            str: Formatted string.
+        """
+        if isinstance(tdiff, dt.timedelta):
+            tdiff = tdiff.total_seconds()
+        elif isinstance(tdiff, float):
+            pass
+        else:
+            raise TypeError('%s is not a valid type for tdiff.' % (type(tdiff)))
+        sgn = False
+        if tdiff < 0:
+            sgn = True
+            tdiff = -tdiff
+        rem = tdiff * 1000
+        out = fmt
+        prefix = '+'
+        if tdiff == 0:
+            prefix = ' '
+        elif sgn:
+            prefix = '-'
+        prefix_prompts = re.findall('%p', fmt)
+        if len(prefix_prompts):
+            out = out.replace('%p', prefix)
+        day_prompts = re.findall('%[0-9]*d', fmt)
+        if len(day_prompts):
+            days, rem = divmod(rem, 86400000)
+            for dp in day_prompts:
+                out = out.replace(dp, dp % (days))
+        hour_prompts = re.findall('%H', fmt)
+        if len(hour_prompts):
+            hours, rem = divmod(rem, 3600000)
+            out = out.replace('%H', '%02.0f' % (hours))
+        minute_prompts = re.findall('%M', fmt)
+        if len(minute_prompts):
+            minutes, rem = divmod(rem, 60000)
+            out = out.replace('%M', '%02.0f' % (minutes))
+        second_prompts = re.findall('%S', fmt)
+        if len(second_prompts):
+            seconds, rem = divmod(rem, 1000)
+            out = out.replace('%S', '%02.0f' % (seconds))
+        msec_prompts = re.findall('%f', fmt)
+        if len(msec_prompts):
+            seconds, msec = divmod(rem, 1000)
+            out = out.replace('%f', '%03.0f' % (msec))
+        return out
+
+format_tdiff = PerfTimer.format_tdiff
