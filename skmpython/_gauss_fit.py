@@ -459,7 +459,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
         return 9
 
 class GaussFit:
-    """Fit N Gaussians with a 5 degree polynomial background.
+    """Fit N Gaussians with a polynomial background using the GaussFuncs* class.
     """
     def __init__(self, x: np.ndarray, y: np.ndarray, *p0, baseclass: BaseGaussFuncs = GaussFuncs(), plot: bool = True, figure_title: str = None, window_title: str = None, **kwargs):
         """Initialize a Gauss fit object.
