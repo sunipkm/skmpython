@@ -8,6 +8,8 @@ from . import staticvars
 from abc import ABC, abstractmethod
 
 class BaseGaussFuncs:
+    """Abstract class listing methods that a base class for GaussFit must provide.
+    """
     @staticmethod
     @abstractmethod
     def full_field(x: np.ndarray, *params)->np.ndarray:
