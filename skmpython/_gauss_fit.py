@@ -1,4 +1,5 @@
 from __future__ import annotations
+from curses import window
 from lib2to3.pytree import Base
 import numpy as np
 import matplotlib.pyplot as plt
@@ -460,7 +461,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
 class GaussFit:
     """Fit N Gaussians with a 5 degree polynomial background.
     """
-    def __init__(self, x: np.ndarray, y: np.ndarray, *p0, baseclass: BaseGaussFuncs = GaussFuncs(), plot: bool = True, **kwargs):
+    def __init__(self, x: np.ndarray, y: np.ndarray, *p0, baseclass: BaseGaussFuncs = GaussFuncs(), plot: bool = True, figure_title: str = None, window_title: str = None, **kwargs):
         """Initialize a Gauss fit object.
 
         Args:
@@ -470,6 +471,8 @@ class GaussFit:
             compatible with the GaussFuncs* class.
             baseclass (GaussFuncs*(BaseGaussFuncs), optional): _description_. Defaults to GaussFuncs().
             plot (bool, optional): Plot progress of the fit. Defaults to True.
+            figure_title (str, optional): Progress figure title. Defaults to None.
+            window_title (str, optional): Progress window title. Defaults to None.
             kwargs: Additional arguments passed to the internal plt.subplots() call.
 
         Raises:
@@ -484,6 +487,10 @@ class GaussFit:
         if (plot):
             fig, ax = plt.subplots(1, 1, **kwargs)
             self._fig = fig
+            if figure_title is not None and len(figure_title) > 0:
+                self._fig.suptitle(figure_title)
+            if window_title is not None and len(window_title) > 0:
+                self._fig.canvas.manager.set_window_title(window_title)
             self._ax = ax
             self._orig, = self._ax.plot(x, y, color = 'r')
             self._bck, = self._ax.plot(x, self._baseclass.background(x, p0), color = 'k')
@@ -526,7 +533,7 @@ class GaussFit:
                     self._last_res = res
                 dres = res - self._last_res
                 self._last_res = res
-                self._fig.suptitle('Gaussians: %d, Iteration: %d, Residual: %.3e, Delta: %.3e'%(self._n_gaussians, self._iteration, res, dres))
+                self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e, Delta: %.3e'%(self._n_gaussians, self._iteration, res, dres))
                 self._fig.canvas.draw()
                 self._fig.canvas.flush_events()
         self._iteration += 1
@@ -558,7 +565,7 @@ class GaussFit:
         if self._plot:
             data = self._baseclass.full_field(self._x, output[0])
             res = np.sqrt(np.sum((self._y - data)**2))
-            self._fig.suptitle('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.'%(self._n_gaussians, self._iteration, res))
+            self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.'%(self._n_gaussians, self._iteration, res))
             self._fig.canvas.draw()
             self._fig.canvas.flush_events()
             plt.ioff()
