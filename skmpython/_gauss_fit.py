@@ -1,10 +1,7 @@
 from __future__ import annotations
-from curses import window
-from lib2to3.pytree import Base
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from . import staticvars
 from abc import ABC, abstractmethod
 
 class BaseGaussFuncs:
