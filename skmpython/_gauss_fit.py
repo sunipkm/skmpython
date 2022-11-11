@@ -468,14 +468,14 @@ class GaussFit:
             y (np.ndarray): Y data.
             p0 (list, np.ndarray): Fit parameters initial guess. p0 must have the length
             compatible with the GaussFuncs* class.
-            baseclass (GaussFuncs*(BaseGaussFuncs), optional): _description_. Defaults to GaussFuncs().
+            baseclass (GaussFuncs*(BaseGaussFuncs), optional): Function set to evaluate background and gaussians. Defaults to GaussFuncs().
             plot (bool, optional): Plot progress of the fit. Defaults to True.
             figure_title (str, optional): Progress figure title. Defaults to None.
             window_title (str, optional): Progress window title. Defaults to None.
             kwargs: Additional arguments passed to the internal plt.subplots() call.
 
         Raises:
-            TypeError: _description_
+            TypeError: Base function class is not of GaussFuncs* type.
         """
         if len(p0) == 1:
             p0 = p0[0]
