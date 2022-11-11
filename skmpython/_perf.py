@@ -41,13 +41,16 @@ class PerfTimer:
         """Update counter with number of items performed.
 
         Args:
-            done (int): Number of items completed.
+            done (int): Number of items completed. If 0, it is considered as the beginning.
 
         Raises:
-            ValueError: Number of items completed must at least be 1.
+            ValueError: Number of items completed must at least be 0.
         """
-        if done < 1:
-            raise ValueError('Items completed can not be less than 1.')
+        if done < 0:
+            raise ValueError('Items completed can not be less than 0.')
+        if done == 0:
+            self.start()
+            return
         now = dt.datetime.now()
         diff = (now - self._last).total_seconds()
         self._last_iter[done] = diff
