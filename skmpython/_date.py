@@ -65,21 +65,25 @@ def get_localtime(time: float | dt.datetime | List[float] | np.ndarray, lat: int
     if len(time) != len(lon) != len(lat):
         raise ValueError('Lists are not of equal length')
     t = Time(time, format='datetime64', scale='utc')
-    print(t)
     scoords = coord.get_sun(t)  # geodesic earth coords. ra,dec in degrees
     tt = Time(t, format='datetime64', scale='utc', location=(lon, lat))  # time on the ISS with location of ISS
     lst = [x.sidereal_time(kind='apparent') for x in tt]  # local sidereal time in degrees
     # local time noon = 0
     lt = [(lst[i] - scoords[i].ra).hourangle for i in range(len(lst))]
     lt = np.asarray(lt, dtype='float')
-    print(lt)
     lt -= 12  # offset
-    lt[np.where(lt < 0)] += 24  # wrap around
-    lt[np.where(lt < 0)] += 24  # wrap around
+    lidx = np.where(lt < 0)[0]
+    while (len(lidx)):
+        lt[lidx] += 24  # wrap around
+        lidx = np.where(lt < 0)[0] # find zeros again
     if not timeisfloat:
         return (lt)
     return float(lt)
 
 if __name__ == '__main__':
     import datetime as dt
-    print(get_localtime(dt.datetime.now() + dt.timedelta(5/24), 42.65497421419274, -71.31882758863641+180))
+    dts = np.arange(0, 2*86400, 3, dtype=float)
+    ntime = dt.datetime.now()
+    ts = dts + dt.datetime(ntime.year, ntime.month, ntime.day, tzinfo=pytz.timezone('UTC')).timestamp()
+    lt = get_localtime(ts.tolist(), 42.65497421419274, -71.31882758863641+180)
+    print(lt.min(), lt.max())
