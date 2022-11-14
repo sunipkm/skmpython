@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from abc import ABC, abstractmethod
+import gc
 
 class BaseGaussFuncs:
     """Abstract class listing methods that a base class for GaussFit must provide.
@@ -540,7 +541,7 @@ class GaussFit:
         if self._interval > 0 and self._plot:
             plt.pause(self._interval)
 
-    def run(self, plot_every: int = 0, interval: float=1/24, **kwargs)->tuple:
+    def run(self, plot_every: int = 0, interval: float=1/24, ioff: bool=True, close_after: bool=False, **kwargs)->tuple:
         """Run the fit routine. Read documentation for scipy.optimize.curve_fit to see what additional named parameters can be passed through kwargs (x, y, p0 are internally passed).
 
         Args:
@@ -548,6 +549,8 @@ class GaussFit:
             to a positive value causes run() to ignore the value of interval.
             interval (float, optional): Interval between plot frame updates in seconds. Defaults to 1/24.
             Interval is used only when plot_every is non-positive.
+            ioff (bool, optional): Execute plt.ioff() after run() to revert the system to non-interactive state. Defaults to True.
+            close_after (bool, optional): Execute plt.close() after run() to close the active window. Defaults to False.
             kwargs: Named arguments passed to scipy.optimize.curve_fit. DO NOT pass f, xdata, ydata, p0.
 
         Returns:
@@ -567,7 +570,12 @@ class GaussFit:
             self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.'%(self._n_gaussians, self._iteration, res))
             self._fig.canvas.draw()
             self._fig.canvas.flush_events()
-            plt.ioff()
+            if ioff:
+                plt.ioff()
+            if close_after:
+                plt.close(self._fig)
+                self._fig=None
+                gc.collect()
         return output
 
     def full_field(self, x: np.ndarray, *params)->np.ndarray:
