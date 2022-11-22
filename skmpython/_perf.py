@@ -1,4 +1,5 @@
 from __future__ import annotations
+import time
 import datetime as dt
 from math import inf
 import re
@@ -23,7 +24,7 @@ class PerfTimer:
         if backlog < 1:
             raise ValueError('Backlog can not be less than 2.')
         self._backlog = backlog
-        self._last = dt.datetime.now()
+        self._last = time.perf_counter()
         self._init = self._last
         self._last_iter = {}
         self._total = total
@@ -34,7 +35,7 @@ class PerfTimer:
             unnecessary, the counter is started when created.
             This method is provided for use in rare cases.
         """
-        self._last = dt.datetime.now()
+        self._last = time.perf_counter()
         self._init = self._last
 
     def update(self, done: int):
@@ -51,14 +52,14 @@ class PerfTimer:
         if done == 0:
             self.start()
             return
-        now = dt.datetime.now()
-        diff = (now - self._last).total_seconds()
+        now = time.perf_counter()
+        diff = (now - self._last)
         self._last_iter[done] = diff
         self._last = now
         if len(self._last_iter) > self._backlog:
             kold = list(self._last_iter.keys())[0]
             del self._last_iter[kold]
-        self._elapsed = (now - self._init).total_seconds()
+        self._elapsed = (now - self._init)
 
     @property
     def elapsed(self) -> float:
@@ -67,8 +68,8 @@ class PerfTimer:
         Returns:
             float: Elapsed time since the counter started (in seconds.)
         """
-        now = dt.datetime.now()
-        self._elapsed = (now - self._init).total_seconds()
+        now = time.perf_counter()
+        self._elapsed = (now - self._init)
         return self._elapsed
 
     @property
@@ -164,3 +165,14 @@ class PerfTimer:
         return out
 
 format_tdiff = PerfTimer.format_tdiff
+
+if __name__ == '__main__':
+    pt = None
+    N = 10
+    for i in range(N):
+        if pt is None:
+            pt = PerfTimer(N)
+        time.sleep(1)
+        pt.update(i + 1)
+        print('ETA: %s\tElapsed: %s' %
+            (format_tdiff(pt.eta, '%S.%f'), format_tdiff(pt.elapsed, '%S.%f')))

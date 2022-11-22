@@ -5,12 +5,16 @@ from scipy.optimize import curve_fit
 from abc import ABC, abstractmethod
 import gc
 
+from warnings import warn
+
+warn('The module GaussFit is deprecated.', DeprecationWarning, stacklevel=2)
+
 class BaseGaussFuncs:
     """Abstract class listing methods that a base class for GaussFit must provide.
     """
     @staticmethod
     @abstractmethod
-    def full_field(x: np.ndarray, *params)->np.ndarray:
+    def full_field(x: np.ndarray, *params) -> np.ndarray:
         """Calculate full fit result (background + gaussians)
 
         Args:
@@ -21,10 +25,10 @@ class BaseGaussFuncs:
             np.ndarray: Y data.
         """
         pass
-    
+
     @staticmethod
     @abstractmethod
-    def background(x: np.ndarray, *params)->np.ndarray:
+    def background(x: np.ndarray, *params) -> np.ndarray:
         """Calculate background only.
 
         Args:
@@ -38,7 +42,7 @@ class BaseGaussFuncs:
 
     @staticmethod
     @abstractmethod
-    def gaussian_w_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_w_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Calculate fit result (background + single gaussian)
 
         Args:
@@ -53,7 +57,7 @@ class BaseGaussFuncs:
 
     @staticmethod
     @abstractmethod
-    def gaussian_wo_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_wo_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Calculate single Gaussian (without background)
 
         Args:
@@ -67,7 +71,7 @@ class BaseGaussFuncs:
         pass
 
     @staticmethod
-    def gaussian(x: np.ndarray, H: float, A: float, x0: float, sigma: float)->np.ndarray:
+    def gaussian(x: np.ndarray, H: float, A: float, x0: float, sigma: float) -> np.ndarray:
         """Evaluate a Gaussian.
 
         Args:
@@ -84,7 +88,7 @@ class BaseGaussFuncs:
 
     @staticmethod
     @abstractmethod
-    def n_gaussians(*params)->int:
+    def n_gaussians(*params) -> int:
         """Get number of Gaussians inferred from the parameters.
 
         Returns:
@@ -94,13 +98,14 @@ class BaseGaussFuncs:
 
     @staticmethod
     @abstractmethod
-    def n_background_params()->int:
+    def n_background_params() -> int:
         """Get number of background parameters.
 
         Returns:
             int: Number of background parameters.
         """
         pass
+
 
 class GaussFuncsBasic(BaseGaussFuncs):
     """This class accepts parameters of length 5 + 3 * N, where
@@ -109,15 +114,18 @@ class GaussFuncsBasic(BaseGaussFuncs):
     background = a0 + a1*x + a2*x^2 + a3*x^3 + a4*x^4.
     For each Gaussian, the parameters to be supplied are [C, A, W]. 
     The Gaussians are evaluated as A*exp(-((x-C)/W)^2).
-    
+
     WARNING: Very basic fit function. With large (or small) values of x,
     the polynomial evaluated can be very large. Use if x is around 0.
     GaussFuncs is the preferred class.
     """
+
     def __init__(self):
+        warn('GaussFuncsBasic class is deprecated. Please use GenericFitFunc and GenericFitManager.', category=DeprecationWarning, stacklevel=2)
         pass
+
     @staticmethod
-    def full_field(x: np.ndarray, *params)->np.ndarray:
+    def full_field(x: np.ndarray, *params) -> np.ndarray:
         """Evaluate background + gaussians from the guess/fit parameters.
 
         Args:
@@ -139,7 +147,7 @@ class GaussFuncsBasic(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def background(x: np.ndarray, *params)->np.ndarray:
+    def background(x: np.ndarray, *params) -> np.ndarray:
         """Evaluate background from the guess/fit parameters.
 
         Args:
@@ -157,7 +165,7 @@ class GaussFuncsBasic(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def gaussian_w_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_w_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Evaluate a gaussian, with the background, from the guess/fit parameters.
 
         Args:
@@ -179,7 +187,7 @@ class GaussFuncsBasic(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def gaussian_wo_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_wo_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Evaluate a gaussian, without the background, from the guess/fit parameters.
 
         Args:
@@ -212,13 +220,14 @@ class GaussFuncsBasic(BaseGaussFuncs):
         return (len(params) - 5) // 3
 
     @staticmethod
-    def n_background_params()->int:
+    def n_background_params() -> int:
         """Get number of background parameters.
 
         Returns:
             int: Number of background parameters.
         """
         return 5
+
 
 class GaussFuncs(BaseGaussFuncs):
     """This class accepts parameters of length 6 + 3 * N, where
@@ -232,7 +241,7 @@ class GaussFuncs(BaseGaussFuncs):
     This is the preferred function suite used to fit Gaussians.
     """
     @staticmethod
-    def full_field(x: np.ndarray, *params)->np.ndarray:
+    def full_field(x: np.ndarray, *params) -> np.ndarray:
         """Evaluate background + gaussians from the guess/fit parameters.
 
         Args:
@@ -254,7 +263,7 @@ class GaussFuncs(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def background(x: np.ndarray, *params)->np.ndarray:
+    def background(x: np.ndarray, *params) -> np.ndarray:
         """Evaluate background from the guess/fit parameters.
 
         Args:
@@ -273,7 +282,7 @@ class GaussFuncs(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def gaussian_w_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_w_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Evaluate a gaussian, with the background, from the guess/fit parameters.
 
         Args:
@@ -295,7 +304,7 @@ class GaussFuncs(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def gaussian_wo_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_wo_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Evaluate a gaussian, without the background, from the guess/fit parameters.
 
         Args:
@@ -328,13 +337,14 @@ class GaussFuncs(BaseGaussFuncs):
         return (len(params) - 6) // 3
 
     @staticmethod
-    def n_background_params()->int:
+    def n_background_params() -> int:
         """Get number of background parameters.
 
         Returns:
             int: Number of background parameters.
         """
         return 6
+
 
 class GaussFuncsExtS(BaseGaussFuncs):
     """This class accepts parameters of length 9 + 3 * N, where
@@ -348,7 +358,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
     WARNING: Use this class only in case of very stubborn fits.
     """
     @staticmethod
-    def full_field(x: np.ndarray, *params)->np.ndarray:
+    def full_field(x: np.ndarray, *params) -> np.ndarray:
         """Evaluate background + gaussians from the guess/fit parameters.
 
         Args:
@@ -370,7 +380,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def background(x: np.ndarray, *params)->np.ndarray:
+    def background(x: np.ndarray, *params) -> np.ndarray:
         """Evaluate background from the guess/fit parameters.
 
         Args:
@@ -395,7 +405,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def gaussian_w_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_w_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Evaluate a gaussian, with the background, from the guess/fit parameters.
 
         Args:
@@ -417,7 +427,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
         return y
 
     @staticmethod
-    def gaussian_wo_bg(x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_wo_bg(x: np.ndarray, id: int, *params) -> np.ndarray:
         """Evaluate a gaussian, without the background, from the guess/fit parameters.
 
         Args:
@@ -450,7 +460,7 @@ class GaussFuncsExtS(BaseGaussFuncs):
         return (len(params) - 9) // 3
 
     @staticmethod
-    def n_background_params()->int:
+    def n_background_params() -> int:
         """Get number of background parameters.
 
         Returns:
@@ -458,16 +468,18 @@ class GaussFuncsExtS(BaseGaussFuncs):
         """
         return 9
 
+
 class GaussFit:
     """Fit N Gaussians with a polynomial background using the GaussFuncs* class.
     """
-    def __init__(self, x: np.ndarray, y: np.ndarray, *p0, baseclass: BaseGaussFuncs = GaussFuncs(), plot: bool = True, figure_title: str = None, window_title: str = None, **kwargs):
+
+    def __init__(self, x: np.ndarray, y: np.ndarray, p0: tuple | list | np.ndarray, *, baseclass: BaseGaussFuncs = GaussFuncs(), plot: bool = True, figure_title: str = None, window_title: str = None, **kwargs):
         """Initialize a Gauss fit object.
 
         Args:
             x (np.ndarray): X data.
             y (np.ndarray): Y data.
-            p0 (list, np.ndarray): Fit parameters initial guess. p0 must have the length
+            p0 (tuple | list | np.ndarray): Fit parameters initial guess. p0 must have the length
             compatible with the GaussFuncs* class.
             baseclass (GaussFuncs*(BaseGaussFuncs), optional): Function set to evaluate background and gaussians. Defaults to GaussFuncs().
             plot (bool, optional): Plot progress of the fit. Defaults to True.
@@ -478,8 +490,7 @@ class GaussFit:
         Raises:
             TypeError: Base function class is not of GaussFuncs* type.
         """
-        if len(p0) == 1:
-            p0 = p0[0]
+        warn('GaussFit class is deprecated. Please use GenericFitFunc and GenericFitManager.', category=DeprecationWarning, stacklevel=2)
         if not isinstance(baseclass, BaseGaussFuncs):
             raise TypeError('Base class must be of GaussFuncs* type.')
         self._baseclass = baseclass
@@ -492,11 +503,13 @@ class GaussFit:
             if window_title is not None and len(window_title) > 0:
                 self._fig.canvas.manager.set_window_title(window_title)
             self._ax = ax
-            self._orig, = self._ax.plot(x, y, color = 'r')
-            self._bck, = self._ax.plot(x, self._baseclass.background(x, p0), color = 'k')
+            self._orig, = self._ax.plot(x, y, color='r')
+            self._bck, = self._ax.plot(
+                x, self._baseclass.background(x, p0), color='k')
             self._sig = []
             for i in range(self._n_gaussians):
-                sig, = self._ax.plot(x, self._baseclass.gaussian_w_bg(x, i, p0))
+                sig, = self._ax.plot(
+                    x, self._baseclass.gaussian_w_bg(x, i, p0))
                 self._sig.append(sig)
             self._ax.set_xlim(x.min(), x.max())
         self._plot = plot
@@ -510,11 +523,21 @@ class GaussFit:
             plt.ion()
             plt.show()
 
+    @property
+    def param(self) -> tuple:
+        """Get the latest fit parameters.
+
+        Returns:
+            tuple: Fit parameters.
+        """
+        return tuple(self._param)
+
     def _fit_func(self, x, *params):
         y = self._baseclass.full_field(x, params)
         self._update(x, *params)
+        self._param = params
         return y
-    
+
     def _update(self, x, *params):
         if self._plot:
             if self._plot_every > 0 and (self._iteration % self._plot_every):
@@ -527,13 +550,15 @@ class GaussFit:
                     gaus += bck
                     sig.set_ydata(gaus)
                 data = self._baseclass.full_field(x, params)
-                self._ax.set_ylim(np.min([data.min(), self._y.min()]), np.max([data.max(), self._y.max()]))    
+                self._ax.set_ylim(np.min([data.min(), self._y.min()]), np.max(
+                    [data.max(), self._y.max()]))
                 res = np.sqrt(np.sum((self._y - data)**2))
                 if self._last_res is None:
                     self._last_res = res
                 dres = res - self._last_res
                 self._last_res = res
-                self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e, Delta: %.3e'%(self._n_gaussians, self._iteration, res, dres))
+                self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e, Delta: %.3e' % (
+                    self._n_gaussians, self._iteration, res, dres))
                 self._fig.canvas.draw()
                 self._fig.canvas.flush_events()
         self._iteration += 1
@@ -541,7 +566,7 @@ class GaussFit:
         if self._interval > 0 and self._plot:
             plt.pause(self._interval)
 
-    def run(self, plot_every: int = 0, interval: float=1/24, ioff: bool=True, close_after: bool=False, **kwargs)->tuple:
+    def run(self, *, plot_every: int = 0, interval: float = 1/24, ioff: bool = True, close_after: bool = False, **kwargs) -> tuple:
         """Run the fit routine. Read documentation for scipy.optimize.curve_fit to see what additional named parameters can be passed through kwargs (x, y, p0 are internally passed).
 
         Args:
@@ -563,73 +588,138 @@ class GaussFit:
             self._interval = 0
         else:
             self._interval = interval
-        output = curve_fit(self._fit_func, self._x, self._y, p0=self._param, **kwargs)
+        output = curve_fit(self._fit_func, self._x, self._y,
+                           p0=self._param, **kwargs)
         if self._plot:
             data = self._baseclass.full_field(self._x, output[0])
             res = np.sqrt(np.sum((self._y - data)**2))
-            self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.'%(self._n_gaussians, self._iteration, res))
+            self._ax.set_title('Gaussians: %d, Iteration: %d, Residual: %.3e\nOptimization complete.' % (
+                self._n_gaussians, self._iteration, res))
             self._fig.canvas.draw()
             self._fig.canvas.flush_events()
             if ioff:
                 plt.ioff()
             if close_after:
+                plt.cla()
                 plt.close(self._fig)
-                self._fig=None
+                self._fig = None
                 gc.collect()
         return output
 
-    def full_field(self, x: np.ndarray, *params)->np.ndarray:
+    def plot(self, *, x: list | np.ndarray = None, y : list | np.ndarray = None, ax: plt.Axes = None, figure_title: str = '', window_title: str = '', show: bool = True, **kwargs) -> plt.Figure:
+        """Plot the data and the fit.
+
+        Args:
+            x (list | np.ndarray, optional): X data. Defaults to None for internal X data.
+            y (list | np.ndarray, optional): Y data. Defaults to None for internal Y data.
+            ax (plt.Axes, optional): External axis object. Defaults to None, creates new figure and axis.
+            figure_title (str, optional): Figure title, used if ax is not supplied. Defaults to ''.
+            window_title (str, optional): Plot window title, used if ax is not supplied. Defaults to ''.
+            show (bool, optional): Execute plt.show() at the end. Defaults to True.
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            plt.Figure: _description_
+        """
+        ax_is_internal = False
+        if ax is None:
+            # create fig, ax
+            ax_is_internal = True
+            fig, ax = plt.subplots(1, 1, **kwargs)
+            if figure_title is not None and len(figure_title) > 0:
+                fig.suptitle(figure_title)
+            if window_title is not None and len(window_title) > 0:
+                fig.canvas.manager.set_window_title(window_title)
+        if x is None:
+            x = self._x
+        if y is None:
+            y = self._y
+        if len(x) != len(y):
+            raise ValueError('X and Y arrays must have the same length.')
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        # plot everything here
+        ax.plot(x, y, label='Data')
+        ax.plot(x, self.background(x), label='Background')
+        for i in range(self.n_gaussians()):
+            ax.plot(x, self.gaussian_w_bg(id=i), label='Gaussian %d'%(i))
+        if ax_is_internal:
+            ax.set_xlim(x.min(), x.max())
+            ax.legend()
+        if ax_is_internal and show:
+            plt.show()
+        return ax.get_figure()
+
+    def full_field(self, x: np.ndarray = None, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate full fit result (background + gaussians)
 
         Args:
-            x (np.ndarray): X data.
-            params (list): Background and Gaussian parameters.
+            x (np.ndarray, optional): X data. Leave empty or None to use the X coordinates used to initialize the GaussFit() instance.
+            params (tuple | list | np.ndarray, optional): Background and Gaussian parameters. Set to None to use the inferred parameters.
 
         Returns:
             np.ndarray: Y data.
         """
-        return self._baseclass.full_field(x, *params)
-    
-    def background(self, x: np.ndarray, *params)->np.ndarray:
+        if x is None:
+            x = self._x
+        if params is None:
+            params = self._param
+        return self._baseclass.full_field(x, params)
+
+    def background(self, x: np.ndarray = None, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate background only.
 
         Args:
-            x (np.ndarray): X data.
-            params (list): Background and Gaussian parameters.
+            x (np.ndarray, optional): X data. Leave empty or None to use the X coordinates used to initialize the GaussFit() instance.
+            params (tuple | list | np.ndarray, optional): Background and Gaussian parameters. Set to None to use the inferred parameters.
 
         Returns:
             np.ndarray: Y data.
         """
-        return self._baseclass.background(x, *params)
+        if x is None:
+            x = self._x
+        if params is None:
+            params = self._param
+        return self._baseclass.background(x, params)
 
-    def gaussian_w_bg(self, x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_w_bg(self, x: np.ndarray = None, id: int = 0, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate fit result (background + single gaussian)
 
         Args:
-            x (np.ndarray): X data.
-            id (int): ID of the Gaussian [[0, N), where N is the total number of Gaussians.]
-            params (list): Background and Gaussian parameters.
+            x (np.ndarray, optional): X data. Leave empty or None to use the X coordinates used to initialize the GaussFit() instance.
+            id (int, optional): ID of the Gaussian [[0, N), where N is the total number of Gaussians.] Defaults to 0.
+            params (tuple | list | np.ndarray, optional): Background and Gaussian parameters. Set to None to use the inferred parameters.
 
         Returns:
             np.ndarray: Y data.
         """
-        return self._baseclass.gaussian_w_bg(x, id, *params)
+        if x is None:
+            x = self._x
+        if params is None:
+            params = self._param
+        return self._baseclass.gaussian_w_bg(x, id, params)
 
-    def gaussian_wo_bg(self, x: np.ndarray, id: int, *params)->np.ndarray:
+    def gaussian_wo_bg(self, x: np.ndarray = None, id: int = 0, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate single Gaussian (without background)
 
         Args:
-            x (np.ndarray): X data.
-            id (int): ID of the Gaussian [[0, N), where N is the total number of Gaussians.]
-            params (list): Background and Gaussian parameters.
+            x (np.ndarray, optional): X data. Leave empty or None to use the X coordinates used to initialize the GaussFit() instance.
+            id (int, optional): ID of the Gaussian [[0, N), where N is the total number of Gaussians.] Defaults to 0.
+            params (tuple | list | np.ndarray, optional): Background and Gaussian parameters. Set to None to use the inferred parameters.
 
         Returns:
             np.ndarray: Y data.
         """
-        return self._baseclass.gaussian_wo_bg(x, id, *params)
+        if x is None:
+            x = self._x
+        if params is None:
+            params = self._param
+        return self._baseclass.gaussian_wo_bg(x, id, params)
 
     @staticmethod
-    def gaussian(x: np.ndarray, H: float, A: float, x0: float, sigma: float)->np.ndarray:
+    def gaussian(x: np.ndarray, H: float, A: float, x0: float, sigma: float) -> np.ndarray:
         """Evaluate a Gaussian.
 
         Args:
@@ -644,15 +734,17 @@ class GaussFit:
         """
         return H + A * np.exp(-((x - x0)/sigma)**2)
 
-    def n_gaussians(self, *params)->int:
+    def n_gaussians(self, params: tuple | list | np.ndarray = None) -> int:
         """Get number of Gaussians inferred from the parameters.
 
         Returns:
             int: Number of Gaussians.
         """
-        return self._baseclass.n_gaussians(*params)
+        if params is None:
+            params = self._param
+        return self._baseclass.n_gaussians(params)
 
-    def n_background_params(self)->int:
+    def n_background_params(self) -> int:
         """Get number of background parameters.
 
         Returns:
@@ -660,7 +752,7 @@ class GaussFit:
         """
         return self._baseclass.n_background_params()
 
-    def gaussfunc_name(self)->str:
+    def gaussfunc_name(self) -> str:
         """Get name of the underlying Gaussian function class.
 
         Returns:
@@ -668,3 +760,20 @@ class GaussFit:
         """
         return type(self._baseclass).__name__
 
+
+if __name__ == '__main__':
+    x = np.linspace(-2, 2, 100)
+    p_def = (0, 10, 0.2, -0.5, 0, 0, 0.2, 10, 0.1)
+    y = 10 + 0.2 * x - 0.5 * x**2 + 10 * np.exp(-((x - 0.2) / 0.1)**2)
+    p0 = (0, 10, 0.1, -0.1, 0, 0, 0, 8, 0.5)
+    p_low = (-2, 0, -np.inf, -np.inf, -1e-8, -1e-8, -2, 0, 0)
+    p_high = (2, np.inf, np.inf, 0, 1e-8, 1e-8, 2, np.inf, np.inf)
+    gfit = GaussFit(x, y, p0)
+    gfit.run(ioff=True, close_after=False, bounds=(p_low, p_high))
+    fparam = list(gfit.param)
+    fparam[-1] = abs(fparam[-1])
+    fparam = tuple(fparam)
+    print('Original:', p_def)
+    print('Derived:', fparam)
+    print('Error:', ((y - gfit.full_field())**2).sum())
+    gfit.plot()
