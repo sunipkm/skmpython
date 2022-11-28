@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import Tuple
+from weakref import proxy
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import gc
 
 
@@ -51,7 +52,7 @@ class FitFuncBase:
         Args:
             x (np.ndarray): X coordinates.
             params (tuple | list | np.ndarray): Flat list of function parameters.
-            id (int): ID of the feature.
+            id (int): ID of the feature. Supports negative indexing.
             with_background (bool): Add background to feature. Defaults to True.
 
         Raises:
@@ -77,7 +78,7 @@ class FitFuncBase:
         """Get number of parameters for the feature ID.
 
         Args:
-            id (int): Feature ID.
+            id (int): Feature ID. Supports negative indexing.
 
         Raises:
             RuntimeError: Feature ID exceeds number of available features.
@@ -123,6 +124,15 @@ class FitFuncBase:
         """
         pass
 
+    @abstractmethod
+    def __repr__(self) -> str:
+        """Get the representation of this function.
+
+        Returns:
+            str: Representation string.
+        """
+        return object.__repr__(self)
+
 
 class GenericFitFunc(FitFuncBase):
     """This class accepts generic functions as backgrounds and features, along with number of parameters.
@@ -158,6 +168,7 @@ class GenericFitFunc(FitFuncBase):
         self._featureFcns = []  # empty list of feature function
         self._featureFcnParamN = []  # empty list of feature function parameter numbers
         self._finalized = False
+        self._output = None
 
     def register_feature_fcn(self, *, fcn: object, num_params: int) -> None:
         """Register features.
@@ -262,6 +273,14 @@ class GenericFitFunc(FitFuncBase):
             out += self.num_feature_params(i)[1]
         return out
 
+    def __repr__(self) -> str:
+        _name = type(self).__name__
+        ret = '%s object with %d parameters (%d background parameters). %d feature%s; Feature parameters (index, length): '%(_name, self.num_params(), self.num_background_params(), self.num_features(), 's' if self.num_features() > 1 else '')
+        for i in range(self.num_features()):
+            ret += str(self.num_feature_params(i)) + ', '
+        ret = ret.rstrip(', ')
+        ret += '.'
+        return ret
 
 class GenericFitManager:
     """Fit data to background + features using the *FitFunc class.
@@ -400,7 +419,7 @@ class GenericFitManager:
             self._interval = 0
         else:
             self._interval = interval
-        output = curve_fit(self._fit_func, self._x, self._y,
+        self._output = output = curve_fit(self._fit_func, self._x, self._y,
                            p0=self._param, **kwargs)
         if self._plot:
             data = self._baseclass.full_field(self._x, output[0])
@@ -418,7 +437,7 @@ class GenericFitManager:
                 gc.collect()
         return output
 
-    def plot(self, *, x: list | np.ndarray = None, y: list | np.ndarray = None, ax: plt.Axes = None, figure_title: str = '', window_title: str = '', show: bool = True, **kwargs) -> plt.Figure:
+    def plot(self, *, x: list | np.ndarray = None, y: list | np.ndarray = None, ax: plt.Axes = None, figure_title: str = '', window_title: str = '', show: bool = True, **kwargs) -> Tuple(plt.Figure, plt.Axes):
         """Plot the data and the fit.
 
         Args:
@@ -430,10 +449,10 @@ class GenericFitManager:
             show (bool, optional): Execute plt.show() at the end. Defaults to True.
 
         Raises:
-            ValueError: _description_
+            ValueError: X and Y arrays are not of the same dimension.
 
         Returns:
-            plt.Figure: _description_
+            tuple(plt.Figure, plt.Axes): Matplotlib figure and axes objects.
         """
         ax_is_internal = False
         if ax is None:
@@ -453,16 +472,21 @@ class GenericFitManager:
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
         # plot everything here
-        ax.plot(x, y, label='Data')
-        ax.plot(x, self.background(x), label='Background')
+        ax.plot(x, y, color='k', label='Data')
+        res_fmt = '%.3f'
+        if abs(y.mean()) < 0.001:
+            res_fmt = '%.3e'
+        res_fmt = 'Residual + ' + res_fmt
+        ax.plot(x, y - self.full_field(x) + y.mean(), label=res_fmt%(y.mean()))
         for i in range(self.num_features()):
             ax.plot(x, self.feature(id=i), label='Feature %d' % (i))
+        ax.plot(x, self.background(x), label='Background')
         if ax_is_internal:
             ax.set_xlim(x.min(), x.max())
             ax.legend()
         if ax_is_internal and show:
             plt.show()
-        return ax.get_figure()
+        return (ax.get_figure(), ax)
 
     def full_field(self, x: np.ndarray = None, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate full fit result (background + features)
@@ -538,6 +562,22 @@ class GenericFitManager:
         """
         return self._baseclass.num_params()
 
+    def get_backend(self) -> FitFuncBase:
+        """Get the instance of the fit function class used to fit the data.
+
+        Returns:
+            FitFuncBase: Instance of fit function class used to fit the data.
+        """
+        return self._baseclass
+
+    def wrap_results(self) -> dict:
+        """Get the result of the fit (if GenericFitManager().run() has been executed) and the base function class.
+
+        Returns:
+            dict: Key 'output': Output of scipy.optimize.curve_fit(), key 'backend': Fit function class instance.
+        """
+        return {'output': self._output, 'backend': self._baseclass}
+
     @property
     def baseclass_name(self) -> str:
         """Get name of the underlying *FitFunc function class.
@@ -568,4 +608,5 @@ if __name__ == '__main__':
     gfit.run(ioff=True, close_after=False, bounds=(p_low, p_high), p0=p0) # run the fit
     print('Derived:', gfit.param) # print the derived parameters
     print('Error:', gfit.meansq_error, ', Noise:', noise.std()) # print the mean squared error and noise
+    print(gfit.wrap_results())
     gfit.plot() # plot the fit result
