@@ -13,6 +13,8 @@ Using `pip`:
 ## Functions
 1. `datetime_in_timezone`: Instantiate `datetime.datetime` object using a similar constructor where the first input is `pytz.timezone()` instance, followed by `year`, `month`, `day`, `hour`, etc. Will have issues when daylight saving is set/reset.
 2. `format_tdiff`: DEPRECATED. Format time difference (in seconds) using a format similar to that used by `datetime.datetime.strftime()`. Use `PerfTimer.format_tdiff()` instead.
+3. `vac2air`: Convert wavelengths in vacuum (in nm) to wavelengths in air.
+4. `air2vac`: Convert wavelengths in air (in nm) to wavelengths in vacuum.
 
 ## Decorators
 1. `staticvars`: Use this decorator to declare and initialize static variables to be used
