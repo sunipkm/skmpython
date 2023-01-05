@@ -407,6 +407,10 @@ class GenericFitManager:
 
         Returns:
             tuple: popt, pcov (and infodict, mesg, ier if full_output=True) from scipy.optimize.curve_fit.
+
+        Raises:
+            RuntimeError: if the least-square minimization fails.
+            OptimizeWarning: if covariance of the parameters can not be estimated.
         """
         unsupported_args = ['f', 'xdata', 'ydata', 'p0']
         for key in unsupported_args:
