@@ -44,7 +44,6 @@ def LatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = 'ISS
     if LatLonFromTstamp.tledb is None or LatLonFromTstamp.tlefile != database_fname:
         if database_fname == 'ISS_TLE_DB.nc':
             database_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), database_fname)
-            print(database_fname)
         LatLonFromTstamp.tledb = xr.load_dataset(database_fname)
         LatLonFromTstamp.tlefile = database_fname
     if isinstance(ts, datetime):
