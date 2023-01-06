@@ -66,7 +66,7 @@ class GenericMinimizeManager:
     """Minimize a metric iteratively using *MinimizeFunc class, using scipy.optimize.least_squares.
     """
 
-    def __init__(self, *, p0: tuple | list | np.ndarray, baseclass: MinFuncBase, plot: bool = True, figure_title: str = None, window_title: str = None, **kwargs):
+    def __init__(self, *, p0: tuple | list | np.ndarray, baseclass: MinFuncBase, plot: bool = True, figure_title: str = None, window_title: str = None, hist_len: int = 50, **kwargs):
         """Initialize a GenericMinimizeManager object.
 
         Args:
@@ -95,21 +95,29 @@ class GenericMinimizeManager:
         self._dres = None
         self._plot_every = 0
         self._output: OptimizeResult = None
+        self._metric_hist = [np.nan] * hist_len
         if (plot):
             x = self._baseclass.get_x()
             y = self._baseclass.get_y()
             y0 = self._baseclass.get_y0()
             cost = self._baseclass.get_metric()
-            fig, ax = plt.subplots(1, 1, **kwargs)
+            fig, ax = plt.subplots(2, 1, gridspec_kw={'height_ratios': (3, 1)},**kwargs)
+            ax_s = ax[1]
+            ax = ax[0]
             self._fig = fig
             if figure_title is not None and len(figure_title) > 0:
                 self._fig.suptitle(figure_title)
             if window_title is not None and len(window_title) > 0:
                 self._fig.canvas.manager.set_window_title(window_title)
             self._ax = ax
+            self._ax_s = ax_s
             self._orig, = self._ax.plot(x, y0, color='r')
             self._sig, = self._ax.plot(
                 x, y, color='k')
+            self._hist, = self._ax_s.plot(np.arange(self._iteration - len(self._metric_hist), self._iteration), self._metric_hist)
+            self._ax_s.set_xlabel('Iteration')
+            self._ax_s.set_ylabel('Metric')
+            self._ax_s.set_yscale('log')
             xmin = x.min()
             xmax = x.max()
             if xmax == xmin:
@@ -142,6 +150,10 @@ class GenericMinimizeManager:
     def _fit_func(self, *params):
         self._baseclass.update_guess(params)
         res = self._baseclass.get_metric()
+        if res < 0:
+            raise RuntimeError('Residual can not be negative. Please check implementation.')
+        self._metric_hist.pop(0)
+        self._metric_hist.append(res)
         self._update(self._baseclass.get_x(), self._baseclass.get_y(), self._baseclass.get_y0(), res)
         self._param = params
         return res
@@ -154,8 +166,8 @@ class GenericMinimizeManager:
                 self._orig.set_data(x, y0)
                 self._sig.set_data(x, y)
                 
-                ymin = np.min(y.min(), y0.min())
-                ymax = np.min(y.max(), y0.max())
+                ymin = min(y.min(), y0.min())
+                ymax = min(y.max(), y0.max())
 
                 if ymin == ymax:
                     ymin -= 0.5
@@ -179,6 +191,17 @@ class GenericMinimizeManager:
                     self._iteration, res, 'None' if self._dres is None else ('%.3e'%(dres))))
 
                 self._dres = dres
+
+                if self._iteration:
+                    iter_x = np.arange(self._iteration - len(self._metric_hist), self._iteration)
+                    iter_y = np.asarray(self._metric_hist)
+                    xmin = iter_x.min()
+                    xmax = iter_x.max()
+                    ymin = np.nanmin(iter_y)
+                    ymax = np.nanmax(iter_y)
+                    self._ax_s.set_xlim(xmin, xmax)
+                    self._ax_s.set_ylim(ymin, ymax)
+                    self._hist.set_data(iter_x, iter_y)
                 
                 self._fig.canvas.draw()
                 self._fig.canvas.flush_events()
@@ -198,6 +221,9 @@ class GenericMinimizeManager:
             ioff (bool, optional): Execute plt.ioff() after run() to revert the system to non-interactive state. Defaults to True.
             close_after (bool, optional): Execute plt.close() after run() to close the active window. Defaults to False.
             kwargs: Named arguments passed to scipy.optimize.least_squares. DO NOT pass fun, x0, args and callback.
+
+        Raises:
+            RuntimeError: If residual/metric is negative, RuntimeError is raised.
 
         Returns:
             OptimizeResult: Output of scipy.optimize.least_squares. Attribute x: np.ndarray is the solution of the optimization.
