@@ -114,7 +114,7 @@ class GenericMinimizeManager:
             self._orig, = self._ax.plot(x, y0, color='r')
             self._sig, = self._ax.plot(
                 x, y, color='k')
-            self._hist, = self._ax_s.plot(np.arange(self._iteration - len(self._metric_hist), self._iteration), self._metric_hist)
+            self._hist, = self._ax_s.plot(np.arange(self._iteration - len(self._metric_hist), self._iteration), self._metric_hist, color = 'b', ls = '--', marker = '*')
             self._ax_s.set_xlabel('Iteration')
             self._ax_s.set_ylabel('Metric')
             self._ax_s.set_yscale('log')
@@ -242,6 +242,9 @@ class GenericMinimizeManager:
         self._output = output = least_squares(self._fit_func,
                            x0=self._param, **kwargs)
         if self._plot:
+            p0 = tuple(output.x)
+            self._fit_func(*p0)
+            self._iteration -= 1
             self._ax.set_title('Iteration: %d, Residual: %.3e\nOptimization %s.' % (
                 self._iteration, self._baseclass.get_metric(), 'Success' if output.success else 'Failed'))
             self._fig.canvas.draw()
