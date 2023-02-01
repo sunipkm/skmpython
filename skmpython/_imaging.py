@@ -13,10 +13,28 @@ class TransformImage:
         """Generate a new instance of TransformImage class from data array.
 
         Args:
-            data (np.ndarray): Image data array.
+            data (np.ndarray): Image data array. Must be 2D.
+
+        Raises:
+            TypeError: Input data must be a 2D array.
         """
+        if data.ndim != 2:
+            raise TypeError('Must be a 2D data array.')
         self._supersample = 1  # not supersampled
         self._transforms = []  # empty list of transforms
+        self._dtype = data.dtype
+        self._orig = np.copy(data)
+        self._data = np.copy(self._orig)
+
+    def reload_data(self, data: np.ndarray):
+        """Load new data into this instance of TransformImage to reapply transforms.
+
+        Args:
+            data (np.ndarray): Image data array. Must be 2D.
+
+        Raises:
+            TypeError: Input data must be a 2D array.
+        """
         self._dtype = data.dtype
         self._orig = np.copy(data)
         self._data = np.copy(self._orig)
