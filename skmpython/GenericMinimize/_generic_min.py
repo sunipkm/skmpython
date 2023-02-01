@@ -12,55 +12,56 @@ class MinFuncBase:
     """Abstract class methods that a base class for GenericMinimizeManager must provide.
     """
     @abstractmethod
-    def get_x(self)->np.ndarray:
+    def get_x(self) -> np.ndarray:
         """Get the X axis (for plot).
-        
+
         Returns:
             np.ndarray: X coordinates.
         """
         pass
 
     @abstractmethod
-    def get_y0(self)->np.ndarray:
+    def get_y0(self) -> np.ndarray:
         """Get the Y0 reference (for plot).
-        
+
         Returns:
             np.ndarray: Y0 values.
         """
         pass
-    
+
     @abstractmethod
-    def get_y(self)->np.ndarray:
+    def get_y(self) -> np.ndarray:
         """Get the Y values (for plot).
-        
+
         Returns:
             np.ndarray: Y values.
         """
         pass
 
     @abstractmethod
-    def get_metric(self)->float:
+    def get_metric(self) -> float:
         """Evaluate the minimization metric.
-        
+
         Returns:
             float: Minimization metric.
         """
         pass
 
     @abstractmethod
-    def update_guess(self, p0: tuple | list | np.ndarray)->None:
+    def update_guess(self, p0: tuple | list | np.ndarray) -> None:
         """Update the independent parameters.
         """
         pass
 
     @abstractmethod
-    def num_params(self)->int:
+    def num_params(self) -> int:
         """Get numbers of supported parameters.
 
         Return:
             int: Number of supported parameters.
         """
         pass
+
 
 class GenericMinimizeManager:
     """Minimize a metric iteratively using *MinimizeFunc class, using scipy.optimize.least_squares.
@@ -72,7 +73,7 @@ class GenericMinimizeManager:
         Args:
             p0 (tuple | list | np.ndarray): Fit parameters initial guess. p0 must have the length
             compatible with the *MinimizeFunc class.
-            baseclass (*MinimizeFunc(MinFuncBase)): Function set to evaluate background and features.
+            baseclass (*MinimizeFunc(MinFuncBase)): Function set to evaluate background and features. Must be an instance of a class derived from `MinFuncBase`.
             plot (bool, optional): Plot progress of the fit. Defaults to True.
             figure_title (str, optional): Progress figure title. Defaults to None.
             window_title (str, optional): Progress window title. Defaults to None.
@@ -85,9 +86,10 @@ class GenericMinimizeManager:
         if not isinstance(baseclass, MinFuncBase):
             raise TypeError('Base class must be of *MinimizeFunc type.')
         if len(p0) != baseclass.num_params():
-            raise ValueError('Length of initial guess parameters list does not match the number of parameters accepted by %s.'%(self.baseclass_name))
+            raise ValueError('Length of initial guess parameters list does not match the number of parameters accepted by %s.' % (
+                self.baseclass_name))
         self._baseclass = baseclass
-        self._baseclass.update_guess(p0) # evaluate X, Y, Y0
+        self._baseclass.update_guess(p0)  # evaluate X, Y, Y0
         self._plot = plot
         self._iteration = 0
         self._param = p0
@@ -101,7 +103,8 @@ class GenericMinimizeManager:
             y = self._baseclass.get_y()
             y0 = self._baseclass.get_y0()
             cost = self._baseclass.get_metric()
-            fig, ax = plt.subplots(2, 1, gridspec_kw={'height_ratios': (3, 1)},**kwargs)
+            fig, ax = plt.subplots(
+                2, 1, gridspec_kw={'height_ratios': (3, 1)}, **kwargs)
             ax_s = ax[1]
             ax = ax[0]
             self._fig = fig
@@ -114,7 +117,8 @@ class GenericMinimizeManager:
             self._orig, = self._ax.plot(x, y0, color='r')
             self._sig, = self._ax.plot(
                 x, y, color='k')
-            self._hist, = self._ax_s.plot(np.arange(self._iteration - len(self._metric_hist), self._iteration), self._metric_hist, color = 'b', ls = '--', marker = '*')
+            self._hist, = self._ax_s.plot(np.arange(self._iteration - len(
+                self._metric_hist), self._iteration), self._metric_hist, color='b', ls='--', marker='*')
             self._ax_s.set_xlabel('Iteration')
             self._ax_s.set_ylabel('Metric')
             self._ax_s.set_yscale('log')
@@ -125,7 +129,7 @@ class GenericMinimizeManager:
                 xmax += 0.5
             self._ax.set_xlim(xmin, xmax)
             self._ax.set_title('Iteration: %d, Residual: %.3e, Delta: %s' % (
-                    self._iteration, cost, 'Not Available'))
+                self._iteration, cost, 'Not Available'))
             plt.ion()
             plt.show()
 
@@ -151,10 +155,12 @@ class GenericMinimizeManager:
         self._baseclass.update_guess(params)
         res = self._baseclass.get_metric()
         if res < 0:
-            raise RuntimeError('Residual can not be negative. Please check implementation.')
+            raise RuntimeError(
+                'Residual can not be negative. Please check implementation.')
         self._metric_hist.pop(0)
         self._metric_hist.append(res)
-        self._update(self._baseclass.get_x(), self._baseclass.get_y(), self._baseclass.get_y0(), res)
+        self._update(self._baseclass.get_x(),
+                     self._baseclass.get_y(), self._baseclass.get_y0(), res)
         self._param = params
         return res
 
@@ -165,21 +171,21 @@ class GenericMinimizeManager:
             else:
                 self._orig.set_data(x, y0)
                 self._sig.set_data(x, y)
-                
+
                 ymin = min(y.min(), y0.min())
                 ymax = min(y.max(), y0.max())
 
                 if ymin == ymax:
                     ymin -= 0.5
                     ymax += 0.5
-                
+
                 xmin = x.min()
                 xmax = x.max()
-                
+
                 if xmin == xmax:
                     xmin -= 0.5
                     xmax += 0.5
-                
+
                 self._ax.set_xlim(xmin, xmax)
                 self._ax.set_ylim(ymin, ymax)
 
@@ -188,12 +194,13 @@ class GenericMinimizeManager:
                 dres = res - self._last_res
 
                 self._ax.set_title('Iteration: %d, Residual: %.3e, Delta: %s' % (
-                    self._iteration, res, 'None' if self._dres is None else ('%.3e'%(dres))))
+                    self._iteration, res, 'None' if self._dres is None else ('%.3e' % (dres))))
 
                 self._dres = dres
 
                 if self._iteration:
-                    iter_x = np.arange(self._iteration - len(self._metric_hist), self._iteration)
+                    iter_x = np.arange(self._iteration -
+                                       len(self._metric_hist), self._iteration)
                     iter_y = np.asarray(self._metric_hist)
                     xmin = iter_x.min()
                     xmax = iter_x.max()
@@ -202,7 +209,7 @@ class GenericMinimizeManager:
                     self._ax_s.set_xlim(xmin, xmax)
                     self._ax_s.set_ylim(ymin, ymax)
                     self._hist.set_data(iter_x, iter_y)
-                
+
                 self._fig.canvas.draw()
                 self._fig.canvas.flush_events()
         self._iteration += 1
@@ -240,7 +247,7 @@ class GenericMinimizeManager:
         else:
             self._interval = interval
         self._output = output = least_squares(self._fit_func,
-                           x0=self._param, **kwargs)
+                                              x0=self._param, **kwargs)
         if self._plot:
             p0 = tuple(output.x)
             self._fit_func(*p0)

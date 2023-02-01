@@ -234,7 +234,8 @@ class GenericFitFunc(FitFuncBase):
         if id < 0:
             id += len(self._featureFcns)
         y = np.zeros(x.shape, dtype=float)
-        _params = tuple(params[self._featureFcnParamN[id]:self._featureFcnParamN[id+1]])
+        _params = tuple(params[self._featureFcnParamN[id]
+                        :self._featureFcnParamN[id+1]])
         y += self._featureFcns[id](x, *_params)
         if with_background:
             y += self.background(x, params)
@@ -275,12 +276,14 @@ class GenericFitFunc(FitFuncBase):
 
     def __repr__(self) -> str:
         _name = type(self).__name__
-        ret = '%s object with %d parameters (%d background parameters). %d feature%s; Feature parameters (index, length): '%(_name, self.num_params(), self.num_background_params(), self.num_features(), 's' if self.num_features() > 1 else '')
+        ret = '%s object with %d parameters (%d background parameters). %d feature%s; Feature parameters (index, length): ' % (
+            _name, self.num_params(), self.num_background_params(), self.num_features(), 's' if self.num_features() > 1 else '')
         for i in range(self.num_features()):
             ret += str(self.num_feature_params(i)) + ', '
         ret = ret.rstrip(', ')
         ret += '.'
         return ret
+
 
 class GenericFitManager:
     """Fit data to background + features using the *FitFunc class.
@@ -294,7 +297,7 @@ class GenericFitManager:
             y (np.ndarray): Y coordinates.
             p0 (tuple | list | np.ndarray): Fit parameters initial guess. p0 must have the length
             compatible with the *FitFunc class.
-            baseclass (*FitFunc(FitFuncBase)): Function set to evaluate background and features.
+            baseclass (*FitFunc(FitFuncBase)): Function set to evaluate background and features. Must be an instance of a class (e.g. `GenericFitFunc`) derived from `FitFuncBase`.
             plot (bool, optional): Plot progress of the fit. Defaults to True.
             figure_title (str, optional): Progress figure title. Defaults to None.
             window_title (str, optional): Progress window title. Defaults to None.
@@ -307,17 +310,22 @@ class GenericFitManager:
         if not isinstance(baseclass, FitFuncBase):
             raise TypeError('Base class must be of *FitFunc type.')
         if len(p0) != baseclass.num_params():
-            raise ValueError('Length of initial guess parameters list does not match the number of parameters accepted by %s.'%(self.baseclass_name))
+            raise ValueError('Length of initial guess parameters list does not match the number of parameters accepted by %s.' % (
+                self.baseclass_name))
         self._baseclass = baseclass
         self._baseclass.finalize()
         self._n_features = self._baseclass.num_features()
+        self._figtit = ''
+        self._wintit = ''
         if (plot):
             fig, ax = plt.subplots(1, 1, **kwargs)
             self._fig = fig
             if figure_title is not None and len(figure_title) > 0:
                 self._fig.suptitle(figure_title)
+                self._figtit = figure_title
             if window_title is not None and len(window_title) > 0:
                 self._fig.canvas.manager.set_window_title(window_title)
+                self._wintit = window_title
             self._ax = ax
             self._orig, = self._ax.plot(x, y, color='r')
             self._bck, = self._ax.plot(
@@ -347,6 +355,15 @@ class GenericFitManager:
             tuple: Fit parameters.
         """
         return tuple(self._param)
+
+    @property
+    def iterations(self) -> int:
+        """Get the total number of iterations performed.
+
+        Returns:
+            int: Number of iterations for fit convergence.
+        """
+        return self._iteration
 
     @property
     def meansq_error(self) -> float:
@@ -424,7 +441,7 @@ class GenericFitManager:
         else:
             self._interval = interval
         self._output = output = curve_fit(self._fit_func, self._x, self._y,
-                           p0=self._param, **kwargs)
+                                          p0=self._param, **kwargs)
         if self._plot:
             data = self._baseclass.full_field(self._x, output[0])
             res = np.sqrt(np.sum((self._y - data)**2))
@@ -441,15 +458,15 @@ class GenericFitManager:
                 gc.collect()
         return output
 
-    def plot(self, *, x: list | np.ndarray = None, y: list | np.ndarray = None, ax: plt.Axes = None, figure_title: str = '', window_title: str = '', show: bool = True, **kwargs) -> Tuple(plt.Figure, plt.Axes):
+    def plot(self, *, x: list | np.ndarray = None, y: list | np.ndarray = None, ax: plt.Axes = None, figure_title: str = None, window_title: str = None, show: bool = True, **kwargs) -> Tuple(plt.Figure, plt.Axes):
         """Plot the data and the fit.
 
         Args:
             x (list | np.ndarray, optional): X coordinates. Defaults to None for internal X coordinates.
             y (list | np.ndarray, optional): Y coordinates. Defaults to None for internal Y coordinates.
             ax (plt.Axes, optional): External axis object. Defaults to None, creates new figure and axis.
-            figure_title (str, optional): Figure title, used if ax is not supplied. Defaults to ''.
-            window_title (str, optional): Plot window title, used if ax is not supplied. Defaults to ''.
+            figure_title (str, optional): Figure title, used if ax is not supplied. Defaults to None.
+            window_title (str, optional): Plot window title, used if ax is not supplied. Defaults to None.
             show (bool, optional): Execute plt.show() at the end. Defaults to True.
 
         Raises:
@@ -465,8 +482,13 @@ class GenericFitManager:
             fig, ax = plt.subplots(1, 1, **kwargs)
             if figure_title is not None and len(figure_title) > 0:
                 fig.suptitle(figure_title)
+            elif len(self._figtit) > 0:
+                fig.suptitle(self._figtit)
             if window_title is not None and len(window_title) > 0:
                 fig.canvas.manager.set_window_title(window_title)
+            elif len(self._wintit) > 0:
+                fig.canvas.manager.set_window_title(self._wintit)
+
         if x is None:
             x = self._x
         if y is None:
@@ -481,7 +503,8 @@ class GenericFitManager:
         if abs(y.mean()) < 0.001:
             res_fmt = '%.3e'
         res_fmt = 'Residual + ' + res_fmt
-        ax.plot(x, y - self.full_field(x) + y.mean(), label=res_fmt%(y.mean()))
+        ax.plot(x, y - self.full_field(x) +
+                y.mean(), label=res_fmt % (y.mean()))
         for i in range(self.num_features()):
             ax.plot(x, self.feature(id=i), label='Feature %d' % (i))
         ax.plot(x, self.background(x), label='Background')
@@ -594,23 +617,35 @@ class GenericFitManager:
 
 if __name__ == '__main__':
     x = np.linspace(-2, 2, 100)
-    p_def = np.asarray([0, 10, 0.2, -0.5, 0.2, 10, 0.1], dtype=float) # parameters to generate the data to fit
-    p0 = (0, 10, 0.1, -0.1, 0, 8, 0.5) # initial guess parameters
-    p_low = (-2, 0, -np.inf, -np.inf, -2, 0, 0) # initial guess lower bounds
-    p_high = (2, np.inf, np.inf, 0, 2, np.inf, np.inf) # inital guess upper bounds
-    background_fcn = lambda x, x0, a0, a1, a2: a0 + a1 * (x-x0) + a2*(x-x0)**2
-    bfuncs = GenericFitFunc(background_fcn=background_fcn, num_background_params=4) # create the generic fit function and register the background
-    feature_fcn = lambda x, c, a, w: a*np.exp(-((x-c)/w)**2)
-    bfuncs.register_feature_fcn(fcn=feature_fcn, num_params=3) # register the feature
-    bfuncs.finalize() # finalize the registration
-    y = bfuncs.full_field(x, p_def) # calculate the data to fit
-    noise = np.random.uniform(-0.1, 0.1, size=y.shape) # inject noise
-    y += noise # inject noise
-    gfit = GenericFitManager(x, y, p0=p0, baseclass=bfuncs) # create the fit manager
-    print('GenericFitManager using %s backend.'%(gfit.baseclass_name)) # print the base class
-    print('Original:', p_def) # print the original parameters
-    gfit.run(ioff=True, close_after=False, bounds=(p_low, p_high), p0=p0) # run the fit
-    print('Derived:', gfit.param) # print the derived parameters
-    print('Error:', gfit.meansq_error, ', Noise:', noise.std()) # print the mean squared error and noise
+    # parameters to generate the data to fit
+    p_def = np.asarray([0, 10, 0.2, -0.5, 0.2, 10, 0.1], dtype=float)
+    p0 = (0, 10, 0.1, -0.1, 0, 8, 0.5)  # initial guess parameters
+    p_low = (-2, 0, -np.inf, -np.inf, -2, 0, 0)  # initial guess lower bounds
+    # inital guess upper bounds
+    p_high = (2, np.inf, np.inf, 0, 2, np.inf, np.inf)
+    def background_fcn(x, x0, a0, a1, a2): return a0 + \
+        a1 * (x-x0) + a2*(x-x0)**2
+    # create the generic fit function and register the background
+    bfuncs = GenericFitFunc(
+        background_fcn=background_fcn, num_background_params=4)
+
+    def feature_fcn(x, c, a, w): return a*np.exp(-((x-c)/w)**2)
+    bfuncs.register_feature_fcn(
+        fcn=feature_fcn, num_params=3)  # register the feature
+    bfuncs.finalize()  # finalize the registration
+    y = bfuncs.full_field(x, p_def)  # calculate the data to fit
+    noise = np.random.uniform(-0.1, 0.1, size=y.shape)  # inject noise
+    y += noise  # inject noise
+    # create the fit manager
+    gfit = GenericFitManager(x, y, p0=p0, baseclass=bfuncs, window_title='Test')
+    print('GenericFitManager using %s backend.' %
+          (gfit.baseclass_name))  # print the base class
+    print('Original:', p_def)  # print the original parameters
+    gfit.run(ioff=True, close_after=False, bounds=(
+        p_low, p_high), p0=p0)  # run the fit
+    print('Derived:', gfit.param)  # print the derived parameters
+    # print the mean squared error and noise
+    print('Error:', gfit.meansq_error, ', Noise:', noise.std())
     print(gfit.wrap_results())
-    gfit.plot() # plot the fit result
+    print('Number of iterations:', gfit.iterations)
+    gfit.plot()  # plot the fit result
