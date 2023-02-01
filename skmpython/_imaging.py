@@ -80,6 +80,8 @@ class TransformImage:
         Raises:
             RuntimeError: Invalid subsampling request.
         """
+        if isinstance(res, tuple):
+            res = res[0]
         if res < 1 or res > 32:
             raise RuntimeError('Supersample request %d invalid.' % (res))
         if res == 1:
@@ -93,6 +95,7 @@ class TransformImage:
         out = inval.resize(outshape, resample=Image.BOX)
         out = np.asarray(out, dtype=self._dtype)
         self._data = out
+        self._transforms.append(('ss', 4))
 
     def downsample(self):  # downsample image
         """Downsample the image to source sampling.
@@ -244,8 +247,8 @@ class TransformImage:
     def reapply_transforms(self):
         """Reapply all transforms after reset.
         """
-        for xform in self.__transforms:
-            self.transform(xform[0], xform[1:])
+        for xform in self._transforms:
+            self.transform(xform[0], *xform[1:])
 
     def simplify_transforms(self)->list:
         """Simplify transformation by coalescing consecutive commands.
