@@ -60,7 +60,7 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
     """Get latitude, longitude for a given timestamp using ISS TLE database.
 
     Args:
-        ts (datetime | np.datetime64): Timestamp for evaluation, is timezone aware.
+        ts (datetime | np.datetime64): Timestamp for evaluation, must be timezone aware in case of datetime.
         database_fname (str, optional): TLE dataset file (loaded using xarray.load_dataset). The dataset file must contain a timestamp (coordinate) for when the TLE is valid, and data_vars line1 and line2 containing the two TLE lines. Defaults to 'ISS_TLE_DB.nc'.
         allowdownload (bool, optional): Allow download of TLE not found in DB.
 
@@ -76,6 +76,8 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
         ISSLatLonFromTstamp.tledb = xr.load_dataset(database_fname)
         ISSLatLonFromTstamp.tlefile = database_fname
     if isinstance(ts, datetime):
+        if ts.tzinfo is None:
+            raise ValueError('Timestamp must be timezone aware')
         ts = datetime.utcfromtimestamp(ts.astimezone(tz = pytz.utc).timestamp())
     elif isinstance(ts, np.datetime64):
         ts = datetime.utcfromtimestamp(int(ts)*1e-9)
