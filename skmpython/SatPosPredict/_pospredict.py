@@ -70,7 +70,7 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
         RuntimeError: Could not download valid TLE (allowdownload=True, database does not contain valid epoch).
 
     Returns:
-        Tuple[float, float]: (latitude, longitude) in degrees.
+        Tuple[float, float]: (latitude, longitude) in degrees (-180, 180).
     """
     if ISSLatLonFromTstamp.tledb is None or ISSLatLonFromTstamp.tlefile != database_fname:
         if database_fname is None:
