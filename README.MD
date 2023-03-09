@@ -9,7 +9,7 @@ Using `pip`:
 1. `GenericFit`: Provides `GenericFitFunc` and `GenericFitManager`. Instances of `GenericFitFunc` supports registration of background and feature functions, that can then be provided to
 `GenericFitManager`, along with X and Y data, to fit to the given function. `GenericFitFunc` extends the abstract `FitFuncBase` class. Any custom class used as a base class in
 `GenericFitManager` must derive from `FitFuncBase`.
-2. `SatPosPredict`: Provides `LatLonFromTstamp`. This function uses a TLE database (included default contains ISS TLE from 2016 to 2024), takes a timestamp in `datetime` or `numpy.datetime64` format.
+2. `SatPosPredict`: Provides `ISSLatLonFromTstamp`. This function uses a TLE database (included default contains ISS TLE from 2017-04 to 2017-06), takes a timestamp in `datetime` or `numpy.datetime64` format.
 
 ## Functions
 1. `datetime_in_timezone`: Instantiate `datetime.datetime` object using a similar constructor where the first input is `pytz.timezone()` instance, followed by `year`, `month`, `day`, `hour`, etc. Will have issues when daylight saving is set/reset.

@@ -1,23 +1,51 @@
 # %% Imports
 from __future__ import annotations
-from typing import Tuple
+import json
+from typing import Iterable, Tuple
 import os
+import requests
+from tqdm import tqdm
 import xarray as xr
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
-from astropy.time import Time
-from sgp4.api import Satrec
-from astropy.coordinates import TEME, CartesianDifferential, CartesianRepresentation
-from astropy import units as u
-from astropy.coordinates import ITRS
-import pandas as pd
-from sgp4.api import Satrec
-from astropy.time import Time
-from astropy.coordinates import TEME, CartesianDifferential, CartesianRepresentation
-from astropy import units as u
 import pytz
-from astropy.coordinates import ITRS
+import ephem
+from dateutil.parser import parse
+
+# %%
+# %%
+dict_dayofweek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+dict_mon = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+def get_raw_tle_from_tstamp(ts: datetime | np.datetime64 | Iterable)->Tuple[datetime, str, str, str] | np.ndarray:
+    if isinstance(ts, datetime):
+        ts = datetime.utcfromtimestamp(ts.timestamp())
+    elif isinstance(ts, np.datetime64):
+        ts = datetime.utcfromtimestamp(int(ts)*1e-9)
+    elif isinstance(ts, Iterable):
+        out = []
+        for t in tqdm(ts):
+            out.append(get_raw_tle_from_tstamp(t))
+        return np.asarray(out).T
+
+    dayofweek = dict_dayofweek[ts.weekday()]
+    day = ts.day
+    mon = dict_mon[ts.month]
+    year = ts.year
+    hh = ts.hour
+    mm = ts.minute
+    ss = ts.second
+
+    url = f'http://isstracker.com/ajax/fetchTLE.php?date={dayofweek}%2C%20{day}%20{mon}%20{year}%20{hh}%3A{mm}%3A{ss}%20GMT'
+
+    content = requests.get(url)
+    if content.status_code != 200:
+        raise RuntimeError('Response %d'%(content.status_code))
+    tledict = json.loads(content.content)
+    epoch = tledict['epoch']
+    lines = tledict['jsTLE'].replace('\r', '').split('\n')
+    return (parse(epoch + '+00:00'), lines[0], lines[1], lines[2])
 
 # %%
 def staticvars(**kwargs):
@@ -28,12 +56,13 @@ def staticvars(**kwargs):
     return decorate
 
 @staticvars(tledb=None, tlefile='')
-def LatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = 'ISS_TLE_DB.nc') -> Tuple[float, float]:
-    """Get latitude, longitude for a given timestamp using a TLE database.
+def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = None, allowdownload: bool=True) -> Tuple[float, float]:
+    """Get latitude, longitude for a given timestamp using ISS TLE database.
 
     Args:
         ts (datetime | np.datetime64): Timestamp for evaluation, is timezone aware.
         database_fname (str, optional): TLE dataset file (loaded using xarray.load_dataset). The dataset file must contain a timestamp (coordinate) for when the TLE is valid, and data_vars line1 and line2 containing the two TLE lines. Defaults to 'ISS_TLE_DB.nc'.
+        allowdownload (bool, optional): Allow download of TLE not found in DB.
 
     Raises:
         RuntimeError: SGP4 runtime errors.
@@ -41,29 +70,37 @@ def LatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = 'ISS
     Returns:
         Tuple[float, float]: (latitude, longitude) in degrees.
     """
-    if LatLonFromTstamp.tledb is None or LatLonFromTstamp.tlefile != database_fname:
-        if database_fname == 'ISS_TLE_DB.nc':
-            database_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), database_fname)
-        LatLonFromTstamp.tledb = xr.load_dataset(database_fname)
-        LatLonFromTstamp.tlefile = database_fname
+    if ISSLatLonFromTstamp.tledb is None or ISSLatLonFromTstamp.tlefile != database_fname:
+        if database_fname is None:
+            database_fname = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ISS_TLE_DB.nc')
+        ISSLatLonFromTstamp.tledb = xr.load_dataset(database_fname)
+        ISSLatLonFromTstamp.tlefile = database_fname
     if isinstance(ts, datetime):
-        ts = datetime.fromtimestamp(ts.astimezone(tz = pytz.utc).timestamp())
-    tledb: xr.Dataset = LatLonFromTstamp.tledb
-    tles = tledb.sel(timestamp=ts, method='nearest')
-    l1 = str(np.asarray(tles.line1))
-    l2 = str(np.asarray(tles.line2))
-    jdts = Time(pd.Timestamp(ts).to_julian_date(), format='jd')
-    sat = Satrec.twoline2rv(l1, l2)
-    err, p_vec, v_vec = sat.sgp4(jdts.jd1, jdts.jd2)
-    p_vec = CartesianRepresentation(p_vec*u.km)
-    v_vec = CartesianDifferential(v_vec*u.km/u.s)
-    s_vec = TEME(p_vec.with_differentials(v_vec), obstime=ts)
-    itrs_geo = s_vec.transform_to(ITRS(obstime=ts))
-    loc = itrs_geo.earth_location.geodetic
-    if err:
-        raise RuntimeError('SGP4 error %d'%(err))
-    return (float(loc.lat.value), float(loc.lon.value))
+        ts = datetime.utcfromtimestamp(ts.astimezone(tz = pytz.utc).timestamp())
+    elif isinstance(ts, np.datetime64):
+        ts = datetime.utcfromtimestamp(int(ts)*1e-9)
+
+    tledb: xr.Dataset = ISSLatLonFromTstamp.tledb
+
+    tle_tstamps = tledb.timestamp.values.astype(int)*1e-9
+    lows = np.diff(np.asarray(tle_tstamps < ts.timestamp(), dtype=int)) # find all where tstamps in ds < ts, calculate the diff to get the transition from true to false
+    
+    if np.sum(lows) == 0: # no transitions => not found
+        if allowdownload: # download is allowed
+            _, _, l1, l2 = get_raw_tle_from_tstamp(ts) # get the TLE
+        else:
+            raise IndexError('Could not find valid TLE.') # no can do
+    else: # already in DB
+        idx = np.where(lows != 0)[0]
+        dts = tledb.timestamp.values[idx]
+        tles = tledb.sel(dict(timestamp=dts))
+        l1 = tles.line1.values[0]
+        l2 = tles.line2.values[0]
+    tle = ephem.readtle('GENERIC', l1, l2)
+    tle.compute(ts)
+    return (np.rad2deg(float(tle.sublat)), np.rad2deg(float(tle.sublong)))
 # %%
 if __name__ == '__main__':
-    ts = datetime(2017, 2, 16, tzinfo=pytz.timezone('US/Eastern'))
-    print(ts, LatLonFromTstamp(ts))
+    ts = pytz.timezone('US/Eastern').localize(datetime(2017, 2, 1, 0, 0, 1))
+    print(ts, ISSLatLonFromTstamp(ts))
+# %%
