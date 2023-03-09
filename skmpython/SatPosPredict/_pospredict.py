@@ -65,7 +65,9 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
         allowdownload (bool, optional): Allow download of TLE not found in DB.
 
     Raises:
-        RuntimeError: SGP4 runtime errors.
+        ValueError: Timestamp must be timezone aware.
+        IndexError: Could not find valid TLE in the dataset (allowdownload=False).
+        RuntimeError: Could not download valid TLE (allowdownload=True, database does not contain valid epoch).
 
     Returns:
         Tuple[float, float]: (latitude, longitude) in degrees.
