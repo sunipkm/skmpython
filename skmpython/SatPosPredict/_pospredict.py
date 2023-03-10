@@ -1,7 +1,7 @@
 # %% Imports
 from __future__ import annotations
 import json
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, SupportsFloat as Numeric
 import os
 import requests
 from tqdm import tqdm
@@ -12,8 +12,6 @@ from datetime import datetime
 import pytz
 import ephem
 from dateutil.parser import parse
-
-# %%
 # %%
 dict_dayofweek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 dict_mon = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -56,7 +54,7 @@ def staticvars(**kwargs):
     return decorate
 
 @staticvars(tledb=None, tlefile='')
-def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = None, allowdownload: bool=True) -> Tuple[float, float]:
+def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = None, allowdownload: bool=True) -> Tuple[Numeric, Numeric, Numeric]:
     """Get latitude, longitude for a given timestamp using ISS TLE database.
 
     Args:
@@ -70,7 +68,7 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
         RuntimeError: Could not download valid TLE (allowdownload=True, database does not contain valid epoch).
 
     Returns:
-        Tuple[float, float]: (latitude, longitude) in degrees (-180, 180).
+        Tuple[Numeric, Numeric, Numeric]: (latitude, longitude, altitude) in degrees (-180, 180) and km.
     """
     if ISSLatLonFromTstamp.tledb is None or ISSLatLonFromTstamp.tlefile != database_fname:
         if database_fname is None:
@@ -102,9 +100,9 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
         l2 = tles.line2.values[0]
     tle = ephem.readtle('GENERIC', l1, l2)
     tle.compute(ts)
-    return (np.rad2deg(float(tle.sublat)), np.rad2deg(float(tle.sublong)))
+    return (np.rad2deg(float(tle.sublat)), np.rad2deg(float(tle.sublong)), tle.elevation*1e-3)
 # %%
 if __name__ == '__main__':
-    ts = pytz.timezone('US/Eastern').localize(datetime(2017, 2, 1, 0, 0, 1))
+    ts = pytz.timezone('US/Eastern').localize(datetime(2017, 4, 1, 0, 0, 1))
     print(ts, ISSLatLonFromTstamp(ts))
 # %%
