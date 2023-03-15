@@ -44,6 +44,24 @@ def get_raw_tle_from_tstamp(ts: datetime | np.datetime64 | Iterable)->Tuple[date
     epoch = tledict['epoch']
     lines = tledict['jsTLE'].replace('\r', '').split('\n')
     return (parse(epoch + '+00:00'), lines[0], lines[1], lines[2])
+
+# %%
+def EpochFromTle(line_1: str) -> datetime:
+    t = line_1[18:32] # epoch
+    year = int(t[:2]) # first two digits
+    if year > 56: # first launch in 57 so 57 is 1957
+        year += 1900
+    else: # < 56: 56 -> 2056
+        year += 2000
+
+    yday = int(t[2:5]) # day of year
+    fday = float(t[5:]) # fractional day of year
+    
+    start = pytz.utc.localize(datetime(year, 1, 1)) # first day of the year
+    tstamp = start.timestamp()
+    tstamp += (yday - 1)*86400 # add seconds spent per day
+    tstamp += fday*86400 # fraction of day to seconds
+    return datetime.utcfromtimestamp(tstamp)
 # %%
 def staticvars(**kwargs):
     def decorate(func):
@@ -125,7 +143,11 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
     """
     l1, l2 = ISSTleFromTstamp(ts, database_fname=database_fname, allowdownload=allowdownload)
     tle = ephem.readtle('GENERIC', l1, l2)
-    tle.compute(ts)
+    try:
+        tle.compute(ts)
+    except Exception as e:
+        outstr = f'Could not compute TLE for {ts} (epoch {EpochFromTle(l1)}): {str(e)}\n'
+        raise RuntimeError(outstr)
     return (np.rad2deg(float(tle.sublat)), np.rad2deg(float(tle.sublong)), tle.elevation*1e-3)
 # %%
 if __name__ == '__main__':
