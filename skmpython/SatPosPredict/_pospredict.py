@@ -142,6 +142,12 @@ def ISSLatLonFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = N
         Tuple[Numeric, Numeric, Numeric]: (latitude, longitude, altitude) in degrees (-180, 180) and km.
     """
     l1, l2 = ISSTleFromTstamp(ts, database_fname=database_fname, allowdownload=allowdownload)
+    if isinstance(ts, datetime):
+        if ts.tzinfo is None:
+            raise ValueError('Timestamp must be timezone aware')
+        ts = datetime.utcfromtimestamp(ts.astimezone(tz = pytz.utc).timestamp())
+    elif isinstance(ts, np.datetime64):
+        ts = datetime.utcfromtimestamp(int(ts)*1e-9)
     tle = ephem.readtle('GENERIC', l1, l2)
     try:
         tle.compute(ts)
