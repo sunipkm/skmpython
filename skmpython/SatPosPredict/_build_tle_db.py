@@ -108,6 +108,7 @@ if os.path.exists('ISS_TLE_DB.nc'):
     nds = xr.concat([ds, ods], dim='timestamp')
 else:
     nds = ds
+nds = nds.sortby('timestamp')
 nds = nds.drop_duplicates(dim=..., keep='first')
 # %%
 nds.to_netcdf('ISS_TLE_DB.nc')
