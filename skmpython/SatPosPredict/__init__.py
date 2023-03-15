@@ -1,5 +1,5 @@
-from ._pospredict import ISSLatLonFromTstamp
+from ._pospredict import ISSLatLonFromTstamp, ISSTleFromTstamp
 
 LatLonFromTstamp = ISSLatLonFromTstamp
 
-__all__ = ['ISSLatLonFromTstamp', 'LatLonFromTstamp']
+__all__ = ['ISSLatLonFromTstamp', 'LatLonFromTstamp', 'ISSTleFromTstamp']
