@@ -64,7 +64,7 @@ def ISSTleFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = None
 
     Raises:
         ValueError: Timestamp must be timezone aware.
-        IndexError: Could not find valid TLE in the dataset (allowdownload=False).
+        IndexError: Could not find valid TLE in the dataset (allowdownload=False, full_output=False).
         RuntimeError: Could not download valid TLE (allowdownload=True, database does not contain valid epoch).
 
     Returns:
@@ -93,6 +93,8 @@ def ISSTleFromTstamp(ts: datetime | np.datetime64, *, database_fname: str = None
             if full_output:
                 return (l1, l2, ts, False, -1)
             else: return (l1, l2)
+        elif full_output:
+            return (None, None, ts, False, -1)
         else:
             raise IndexError('Could not find valid TLE.') # no can do
     else: # already in DB
