@@ -43,6 +43,7 @@ def get_raw_tle_from_tstamp(ts: datetime | np.datetime64 | Iterable)->Tuple[date
         out = []
         for t in tqdm(ts):
             out.append(get_raw_tle_from_tstamp(t))
+        out = list(filter(lambda x: x is not None, out))
         return np.asarray(out).T
 
     dayofweek = dict_dayofweek[ts.weekday()]
@@ -55,13 +56,18 @@ def get_raw_tle_from_tstamp(ts: datetime | np.datetime64 | Iterable)->Tuple[date
 
     url = f'http://isstracker.com/ajax/fetchTLE.php?date={dayofweek}%2C%20{day}%20{mon}%20{year}%20{hh}%3A{mm}%3A{ss}%20GMT'
 
-    content = requests.get(url)
-    if content.status_code != 200:
-        raise RuntimeError('Response %d'%(content.status_code))
-    tledict = json.loads(content.content)
-    epoch = tledict['epoch']
-    lines = tledict['jsTLE'].replace('\r', '').split('\n')
-    return (parse(epoch + '+00:00'), lines[0], lines[1], lines[2])
+    try:
+        content = requests.get(url)
+        if content.status_code != 200:
+            print(ts, 'status code:', content.status_code)
+            return None
+        tledict = json.loads(content.content)
+        epoch = tledict['epoch']
+        lines = tledict['jsTLE'].replace('\r', '').split('\n')
+        return (parse(epoch + '+00:00'), lines[0], lines[1], lines[2])
+    except requests.exceptions.RequestException as e:
+        print(ts, e)
+        return None
 
 # %%
 def get_tle_ds(tledb: np.ndarray):
@@ -80,7 +86,7 @@ def get_tle_ds(tledb: np.ndarray):
     return tle_ds.drop_duplicates(dim=..., keep='first')
 
 # %%
-start = pytz.utc.localize(datetime(2017, 3, 29))
+start = pytz.utc.localize(datetime(2017, 5, 29))
 tstamps = []
 cond = True
 idx = 0
@@ -88,12 +94,21 @@ while cond:
     next = datetime.utcfromtimestamp(start.timestamp() + 15*60*idx)
     idx += 1
     tstamps.append(next)
-    if next > pytz.utc.localize(datetime(2017, 6, 1)).replace(tzinfo=None):
+    if next > pytz.utc.localize(datetime(2017, 8, 1)).replace(tzinfo=None):
         break
 # %%
 out = get_raw_tle_from_tstamp(tstamps)
 # %%
 ds = get_tle_ds(out)
 # %%
-ds.to_netcdf('ISS_TLE_DB.nc')
+ds.to_netcdf(f'ISS_TLE_DB_{datetime.now().strftime("%Y%d%m")}.nc')
+# %%
+if os.path.exists('ISS_TLE_DB.nc'):
+    ods = xr.load_dataset('ISS_TLE_DB.nc')
+    nds = xr.concat([ds, ods], dim='timestamp')
+else:
+    nds = ds
+nds = nds.drop_duplicates(dim=..., keep='first')
+# %%
+nds.to_netcdf('ISS_TLE_DB.nc')
 # %%
