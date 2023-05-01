@@ -4,6 +4,11 @@ Using `pip`:
 ```sh
     $ pip install skmpython@"git+https://github.com/sunipkm/skmpython"
 ```
+## Scripts
+1. `update_iss_tledb`: Allows update of internal ISS TLE database. Current database is reliable between 2017-02-15 and 2017-09-30. Inputs:
+    - `--start YYYYMMDD`: Start date
+    - `--end YYYYMMDD`: End date
+    - `--db /path/to/database` (optional): Path to database file. Do not provide to update internal database used by SatPosPredict.
 
 ## Modules
 1. `GenericFit`: Provides `GenericFitFunc` and `GenericFitManager`. Instances of `GenericFitFunc` supports registration of background and feature functions, that can then be provided to
