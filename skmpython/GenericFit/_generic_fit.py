@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple
+from typing import SupportsAbs, Tuple
 from weakref import proxy
 import numpy as np
 import matplotlib.pyplot as plt
@@ -410,7 +410,7 @@ class GenericFitManager:
         if self._interval > 0 and self._plot:
             plt.pause(self._interval)
 
-    def run(self, *, plot_every: int = 0, interval: float = 1/24, ioff: bool = True, close_after: bool = False, **kwargs) -> tuple:
+    def run(self, *, plot_every: int = 0, interval: float = 1/24, ioff: bool = True, close_after: bool = False, throw_error: bool = False, **kwargs) -> tuple:
         """Run the fit routine. Read documentation for scipy.optimize.curve_fit to see what additional named parameters can be passed through kwargs (x, y, p0 are internally passed).
 
         Args:
@@ -420,6 +420,7 @@ class GenericFitManager:
             Interval is used only when plot_every is non-positive.
             ioff (bool, optional): Execute plt.ioff() after run() to revert the system to non-interactive state. Defaults to True.
             close_after (bool, optional): Execute plt.close() after run() to close the active window. Defaults to False.
+            throw_error (bool, optional): Throw RuntimeError if the least-square minimization fails. Defaults to False.
             kwargs: Named arguments passed to scipy.optimize.curve_fit. DO NOT pass f, xdata, ydata, p0.
 
         Returns:
@@ -440,13 +441,26 @@ class GenericFitManager:
             self._interval = 0
         else:
             self._interval = interval
-        self._output = output = curve_fit(self._fit_func, self._x, self._y,
+        errored = False
+        if throw_error:
+            self._output = output = curve_fit(self._fit_func, self._x, self._y,
                                           p0=self._param, **kwargs)
+        else:
+            try:
+                self._output = output = curve_fit(self._fit_func, self._x, self._y,
+                                          p0=self._param, **kwargs)
+            except RuntimeError:
+                errored = True
+                output = self._param # last call value
         if self._plot:
             data = self._baseclass.full_field(self._x, output[0])
             res = np.sqrt(np.sum((self._y - data)**2))
-            self._ax.set_title('Features: %d, Iteration: %d, Residual: %.3e\nOptimization complete.' % (
-                self._n_features, self._iteration, res))
+            tot_pow = np.trapz(self._y, self._x)
+            fit_pow = np.trapz(self._baseclass.background(self._x, output[0]), self._x)
+            for fidx in range(self._n_features):
+                fit_pow += np.trapz(self._baseclass.feature(self._x, output[0], id=fidx, with_background=False), self._x)
+            self._ax.set_title('Features: %d, Iteration: %d, Residual: %.3e\nIntegrated sum: Data: %.3e, Fit: %.3e, Diff: %.3e' % (
+                self._n_features, self._iteration, res, tot_pow, fit_pow, tot_pow - fit_pow))
             self._fig.canvas.draw()
             self._fig.canvas.flush_events()
             if ioff:
@@ -456,6 +470,8 @@ class GenericFitManager:
                 plt.close(self._fig)
                 self._fig = None
                 gc.collect()
+        if errored:
+            output = self._output = (None, None)
         return output
 
     def plot(self, *, x: list | np.ndarray = None, y: list | np.ndarray = None, ax: plt.Axes = None, figure_title: str = None, window_title: str = None, show: bool = True, **kwargs) -> Tuple(plt.Figure, plt.Axes):
@@ -514,6 +530,18 @@ class GenericFitManager:
         if ax_is_internal and show:
             plt.show()
         return (ax.get_figure(), ax)
+    
+    def integrated_err(self) -> SupportsAbs:
+        """Calculate the integrated error between the data and the fit.
+        
+        Returns:
+            SupportsAbs: Integrated error.
+        """
+        tot_pow = np.trapz(self._y, self._x)
+        fit_pow = np.trapz(self._baseclass.background(self._x, self._output[0]), self._x)
+        for fidx in range(self._n_features):
+            fit_pow += np.trapz(self._baseclass.feature(self._x, self._output[0], id=fidx, with_background=False), self._x)
+        return tot_pow - fit_pow
 
     def full_field(self, x: np.ndarray = None, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate full fit result (background + features)
@@ -645,7 +673,7 @@ if __name__ == '__main__':
         p_low, p_high), p0=p0)  # run the fit
     print('Derived:', gfit.param)  # print the derived parameters
     # print the mean squared error and noise
-    print('Error:', gfit.meansq_error, ', Noise:', noise.std())
+    print('Error:', gfit.meansq_error, ', Noise:', noise.std(), ', Initial guess error:', gfit.integrated_err())
     print(gfit.wrap_results())
     print('Number of iterations:', gfit.iterations)
     gfit.plot()  # plot the fit result
