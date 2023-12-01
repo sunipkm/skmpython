@@ -531,9 +531,12 @@ class GenericFitManager:
             plt.show()
         return (ax.get_figure(), ax)
     
-    def integrated_err(self) -> SupportsAbs:
+    def integrated_err(self, as_fraction: bool = False) -> SupportsAbs:
         """Calculate the integrated error between the data and the fit.
         
+        Args:
+            as_fraction (bool, optional): Return the integrated error as a fraction of the total power. Defaults to False.
+            
         Returns:
             SupportsAbs: Integrated error.
         """
@@ -541,7 +544,10 @@ class GenericFitManager:
         fit_pow = np.trapz(self._baseclass.background(self._x, self._output[0]), self._x)
         for fidx in range(self._n_features):
             fit_pow += np.trapz(self._baseclass.feature(self._x, self._output[0], id=fidx, with_background=False), self._x)
-        return tot_pow - fit_pow
+        res = tot_pow - fit_pow
+        if as_fraction:
+            res /= tot_pow
+        return res
 
     def full_field(self, x: np.ndarray = None, params: tuple | list | np.ndarray = None) -> np.ndarray:
         """Calculate full fit result (background + features)
